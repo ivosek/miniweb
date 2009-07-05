@@ -137,7 +137,7 @@ int uh7Zip(UrlHandlerParam* param)
 
 #endif
 
-void __stdcall FileReadThread(UrlHandlerParam* param)
+void FileReadThread(UrlHandlerParam* param)
 {
 	int bytes;
 	fd_set fds;
@@ -193,6 +193,7 @@ void __stdcall FileReadThread(UrlHandlerParam* param)
 
 int uhFileStream(UrlHandlerParam* param)
 {
+#ifdef WIN32
 	if (!param->hs->ptr) {
 		// first request
 		DWORD dwid;
@@ -200,5 +201,7 @@ int uhFileStream(UrlHandlerParam* param)
 		memcpy(p, param, sizeof(UrlHandlerParam));
 		param->hs->ptr = CreateThread(0, 0, (LPTHREAD_START_ROUTINE)FileReadThread, p, 0, &dwid);
 	}
+#endif
 	return FLAG_DATA_SOCKET;
 }
+

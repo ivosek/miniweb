@@ -991,7 +991,7 @@ int _mwStrCopy(char *dest, const char *src)
 	return i;
 }
 
-static int _mwStrHeadMatch(const char* buf1, const char* buf2) {
+int _mwStrHeadMatch(const char* buf1, const char* buf2) {
 	unsigned int i;
 	int x;
 	for(i=0;buf2[i];i++) {
@@ -1524,7 +1524,7 @@ __inline char _mwDecodeCharacter(char* s)
 // This function converts URLd characters back to ascii. For example
 // %3A is '.'
 ////////////////////////////////////////////////////////////////////////////
-void mwDecodeString(const char* pchString)
+void mwDecodeString(char* pchString)
 {
   int bEnd=FALSE;
   char* pchInput=pchString;
