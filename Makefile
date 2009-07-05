@@ -1,70 +1,54 @@
-CC=gcc
-CFLAGS=-O2
-HTTPOBJ = httppil.o http.o httpxml.o httphandler.o
-HEADERS = httpint.h httpapi.h httpxml.h
-ifndef TARGET
-TARGET = miniweb
+# Makefile
+PROJECTROOT     := $(PWD)/..
+DEFINES         = 
+ALTIVECFLAGS    =
+LDFLAGS         =
+
+LIBNAME =libminiweb.a
+SRCS = httppil.c http.c httpxml.c httphandler.c
+
+ifdef APPMINI
+APPNAME = httpd
+APPSRCS = httpmin.c
+else
+APPNAME = miniweb$(EXE)
+APPSRCS = miniweb.c
 endif
+APPDEPS = $(LIBNAME)
 
 ifndef NOPOST
-HTTPOBJ+= httppost.o
-DEFINES+= -DHTTPPOST
+SRCS    += httppost.c
+DEFINES += -DHTTPPOST
 endif
 
 ifdef AUTH
-HTTPOBJ+= httpauth.o
-DEFINES+= -DHTTPAUTH
+SRCS    += httpauth.c
+DEFINES += -DHTTPAUTH
 endif
 
 ifndef THREAD
-DEFINES+= -DNOTHREAD
-endif
-
-ifndef DEBUG
-DFLAGS += -s
-else
-DEFINES+= -D_DEBUG
-LLDFLAGS += -g
+DEFINES += -DNOTHREAD
 endif
 
 ifdef MPD
-DEFINES+= -D_MPD
-HTTPOBJ+= mpd.o procpil.o
+DEFINES += -D_MPD
+SRCS    += mpd.c procpil.c
 endif
 
 ifdef VOD
-DEFINES+= -D_VOD
-HTTPOBJ+= httpvod.o crc32.o
+DEFINES += -D_VOD
+SRCS    += httpvod.c crc32.c
 endif
 
-ifdef WINDIR
-DEFINES= -DWIN32
+ifdef COMSPEC
 LDFLAGS += -lws2_32
-OS="Win32"
 else
-#CFLAGS+= -fPIC
 ifdef THREAD
 LDFLAGS += -lpthread
 endif
-OS="Linux"
 endif
 
-all: $(HTTPOBJ) miniweb.o
-	@echo Building for $(OS)
-	$(CC) $(LDFLAGS) $(HTTPOBJ) miniweb.o -o $(TARGET)
 
-min: $(HTTPOBJ) httpmin.o
-	@echo Building for $(OS)
-	$(CC) $(LDFLAGS) $(HTTPOBJ) httpmin.o -o httpd
+include ../common.mk
 
-%.o: %.c $(HEADERS)
-	$(CC) -c -o $@ $(CFLAGS) $(filter %.c, $^) $(DEFINES)
-
-install: all
-	@rm -f /usr/bin/$(TARGET)
-	@cp $(TARGET) /usr/bin
-
-clean:
-	@rm -f $(TARGET) $(TARGET).exe
-	@rm -f *.o *.ilk *.suo *.ncb
-	@rm -rf Debug Release
+default: $(DEPEND) $(LIBNAME)
