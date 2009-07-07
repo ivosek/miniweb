@@ -1,5 +1,5 @@
 # Makefile
-PROJECTROOT     := $(PWD)/..
+SUBDIRNAME      :=httpd
 DEFINES         = 
 ALTIVECFLAGS    =
 LDFLAGS         =
