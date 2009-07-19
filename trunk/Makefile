@@ -4,7 +4,7 @@ DEFINES         =
 ALTIVECFLAGS    =
 LDFLAGS         =
 
-LIBNAME =libminiweb.a
+LIBNAME =libhttpd.a
 SRCS = httppil.c http.c httpxml.c httphandler.c
 
 ifdef APPMINI
