@@ -18,25 +18,25 @@ APPDEPS = $(LIBNAME)
 
 ifndef NOPOST
 SRCS    += httppost.c
-DEFINES += -DHTTPPOST
+DEFINES += HTTPPOST
 endif
 
 ifdef AUTH
 SRCS    += httpauth.c
-DEFINES += -DHTTPAUTH
+DEFINES += HTTPAUTH
 endif
 
 ifndef THREAD
-DEFINES += -DNOTHREAD
+DEFINES += NOTHREAD
 endif
 
 ifdef MPD
-DEFINES += -D_MPD
+DEFINES += _MPD
 SRCS    += mpd.c procpil.c
 endif
 
 ifdef VOD
-DEFINES += -D_VOD
+DEFINES += _VOD
 SRCS    += httpvod.c crc32.c
 endif
 
