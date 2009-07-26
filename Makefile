@@ -1,8 +1,20 @@
 # Makefile
+THREAD			= yes
+
+##
 SUBDIRNAME      :=httpd
-DEFINES         = 
+
+#ifdef THREAD
+DEFINES		= HAVE_PTHREAD
+#endif
+
 ALTIVECFLAGS    =
-LDFLAGS         =
+
+#ifdef THREAD
+LDFLAGS	= -lpthread
+#else
+LDFLAGS	=
+#endif
 
 LIBNAME =libhttpd.a
 SRCS = httppil.c http.c httpxml.c httphandler.c
