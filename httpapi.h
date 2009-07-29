@@ -335,8 +335,8 @@ int DefaultWebFileUploadCallback(HttpMultipart *pxMP, OCTET *poData, size_t data
 
 int mwGetHttpDateTime(time_t tm, char *buf, int bufsize);
 int mwGetLocalFileName(HttpFilePath* hfp);
-char* mwGetVarValue(HttpVariables* vars, char *varname, int index);
-int mwGetVarValueInt(HttpVariables* vars, char *varname, int defval);
+char* mwGetVarValue(HttpVariables* vars, const char *varname, int index);
+int mwGetVarValueInt(HttpVariables* vars, const char *varname, int defval);
 int mwParseQueryString(UrlHandlerParam* up);
 int mwGetContentType(const char *pchExtname);
 void mwDecodeString(char* s);
