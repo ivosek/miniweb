@@ -1,4 +1,5 @@
 # Makefile
+include ../config.mk
 THREAD			= yes
 
 ##
@@ -61,6 +62,6 @@ endif
 endif
 
 
-include ../common.mk
+include ../rules.mk
 
 default: $(DEPEND) $(LIBNAME)
