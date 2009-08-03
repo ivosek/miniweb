@@ -99,7 +99,7 @@ int DefaultWebFileUploadCallback(HttpMultipart *pxMP, OCTET *poData, size_t dwDa
 	if (!fd) {
 		char filename[256];
 		snprintf(filename, sizeof(filename), "%s/%s", httpParam[0].pchWebPath, pxMP->pchFilename);
-		fd = open(filename, O_CREAT | O_TRUNC | O_RDWR | O_BINARY);
+		fd = open(filename, O_CREAT | O_TRUNC | O_RDWR | O_BINARY, 0);
 		pxMP->pxCallBackData = (void*)fd;
 	}
 	if (fd <= 0) return -1;
