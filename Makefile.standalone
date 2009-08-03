@@ -18,6 +18,8 @@ endif
 
 ifndef THREAD
 DEFINES+= -DNOTHREAD
+else
+DEFINES+= -DHAVE_PTHREAD
 endif
 
 ifndef DEBUG
