@@ -957,6 +957,7 @@ void _mwCloseSocket(HttpParam* hp, HttpSocket* phsSocket)
 	if (ISFLAGSET(phsSocket,FLAG_TO_FREE) && phsSocket->ptr) {
 		free(phsSocket->ptr);
 		phsSocket->ptr=NULL;
+		CLRFLAG(phsSocket, FLAG_TO_FREE);
 	}
 	if (phsSocket->request.pucPath) {
 		free(phsSocket->request.pucPath);
@@ -1637,7 +1638,7 @@ int _mwParseHttpHeader(HttpSocket* phsSocket)
 					p+=5;
 				} else if (!_mwStrHeadMatch(p,"Keep-Alive")) {
 					CLRFLAG(phsSocket,FLAG_CONN_CLOSE);
-					p+=11;
+					p+=10;
 				}
 			} else if (!_mwStrHeadMatch(p, "ontent-Length: ")) {
 				p+=15;
