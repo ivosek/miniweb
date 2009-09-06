@@ -654,7 +654,7 @@
 				Optimization="2"
 				InlineFunctionExpansion="0"
 				FavorSizeOrSpeed="1"
-				PreprocessorDefinitions="WIN32;NDEBUG;NODEBUG;NOCONSOLE;HTTPPOST;_7Z;_CRT_SECURE_NO_DEPRECATE"
+				PreprocessorDefinitions="WIN32;NDEBUG;NODEBUG;NOCONSOLE;HTTPPOST;_CRT_SECURE_NO_DEPRECATE"
 				StringPooling="true"
 				ExceptionHandling="0"
 				BasicRuntimeChecks="0"
@@ -677,7 +677,7 @@
 			/>
 			<Tool
 				Name="VCLibrarianTool"
-				AdditionalDependencies="wsock32.lib 7zDec_a.lib "
+				AdditionalDependencies="wsock32.lib"
 				OutputFile="$(SolutionDir)lib/httpd.lib"
 				AdditionalLibraryDirectories="$(SolutionDir)lib"
 				IgnoreAllDefaultLibraries="false"
