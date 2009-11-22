@@ -596,7 +596,7 @@ int mwParseQueryString(UrlHandlerParam* up)
 		} else if (ISFLAGSET(up->hs,FLAG_REQUEST_POST)){
 			s = up->hs->request.pucPayload;
 		}
-		if (s && *s) {
+		if (s && *s && strncmp(s, "<?xml", 5)) {
 			int i;
 			int n = 1;
 			//get number of variables
