@@ -1573,6 +1573,7 @@ int mwGetContentType(const char *pchExtname)
 		switch (GETDWORD(pchExtname) & 0xffdfdfdf) {
 		case FILEEXT_HTM:	return HTTPFILETYPE_HTML;
 		case FILEEXT_XML:	return HTTPFILETYPE_XML;
+		case FILEEXT_XSL:	return HTTPFILETYPE_XML;
 		case FILEEXT_TEXT:	return HTTPFILETYPE_TEXT;
 		case FILEEXT_XUL:	return HTTPFILETYPE_XUL;
 		case FILEEXT_CSS:	return HTTPFILETYPE_CSS;
