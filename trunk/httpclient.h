@@ -74,8 +74,8 @@ typedef struct {
 extern "C" {
 #endif
 
-void httpInitReq(HTTP_REQUEST* req, const char* url, char* proxy);
-int httpRequest(HTTP_REQUEST* param);
+void httpInitReq(HTTP_REQUEST* req, char* proxy);
+int httpRequest(HTTP_REQUEST* param, const char* url);
 int httpGetResponse(HTTP_REQUEST* param);
 void httpClean(HTTP_REQUEST* param);
 size_t httpSend(HTTP_REQUEST* param, char* data, size_t length);
