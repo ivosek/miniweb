@@ -52,10 +52,9 @@
 #define MULTIPART_BOUNDARY "---------------------------24464570528145"
 #define HTTP_POST_STREAM_HEADER "POST %s HTTP/1.0\r\nHost: %s\r\nUser-Agent: Mozilla/5.0\r\nAccept: text/xml,application/xml,application/xhtml+xml,text/html;q=0.9,text/plain;q=0.8,image/png,*/*;q=0.5\r\nAccept-Language: en-us,en;q=0.5\r\nAccept-Encoding: gzip,deflate\r\nAccept-Charset: ISO-8859-1;q=0.7,*;q=0.7\r\nKeep-Alive: 300\r\nConnection: close\r\nContent-Type: application/octet-stream; filename=%s\r\nContent-Length: %d\r\n%s\r\n"
 
-void httpInitReq(HTTP_REQUEST* req, const char* url, char* proxy)
+void httpInitReq(HTTP_REQUEST* req, char* proxy)
 {
 	memset(req, 0, sizeof(HTTP_REQUEST));
-	req->url = url;
 	if (proxy && *proxy) req->proxy = proxy;
 }
 
@@ -339,11 +338,11 @@ int httpGetResponse(HTTP_REQUEST* param)
 			q=strchr((p += 2),':');
 			if (!q) continue;
 			*q = 0;
-			if (!_stricmp(p,"Content-length")) {
+			if (!stricmp(p,"Content-length")) {
 				param->payloadSize=atoi(q+2);
-			} else if (!_stricmp(p,"Content-type")) {
+			} else if (!stricmp(p,"Content-type")) {
 				param->contentType = q+2;
-			} else if (!_stricmp(p, "Transfer-Encoding")) {
+			} else if (!stricmp(p, "Transfer-Encoding")) {
 				if (!strncmp(p + 19, "chunked", 7)) {
 					param->flags |= FLAG_CHUNKED;
 				}
