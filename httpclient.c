@@ -17,6 +17,8 @@
 #define close _close
 #define lseek _lseek
 #define snprintf _snprintf
+#define stricmp _stricmp
+
 #else
 #include <unistd.h>
 #include <sys/types.h>
@@ -122,13 +124,14 @@ void httpClean(HTTP_REQUEST* param)
 	}
 }
 
-int httpRequest(HTTP_REQUEST* param)
+int httpRequest(HTTP_REQUEST* param, const char* url)
 {
 	const char *path;
 	struct hostent *target_host;
 	int ret = 0;
 	int bytes;
 
+	if (url) param->url = url;
 	param->state = HS_REQUESTING;
 	param->payloadSize=0;
 
@@ -194,39 +197,39 @@ int httpRequest(HTTP_REQUEST* param)
 		int retry = 3;
 		ret = 0;
 		do {
-			if (!param->sockfd) {
-				struct sockaddr_in server_addr;
+		if (!param->sockfd) {
+			struct sockaddr_in server_addr;
 
-				if ((target_host = gethostbyname((const char*)param->hostname)) == NULL) {
-					ret = -1;
-					continue;
-				}
-
-				if ((param->sockfd = socket(AF_INET,SOCK_STREAM,0)) == -1) {
-					DEBUG("Failed to open socket\n");
-					ret = -1;
-					continue;
-				}
-
-				memset(&server_addr.sin_zero,0,8);
-				server_addr.sin_family = AF_INET;
-				server_addr.sin_addr.s_addr = ((struct in_addr *)(target_host->h_addr))->s_addr;
-				server_addr.sin_port = htons(param->port);
-				DEBUG("Connecting to server...\n");
-
-				if (connect(param->sockfd,(struct sockaddr *)&server_addr,sizeof(struct sockaddr)) < 0) {
-					DEBUG("Failed to connect\n");
-					ret = -1;
-					continue;
-				}
+			if ((target_host = gethostbyname((const char*)param->hostname)) == NULL) {
+				ret = -1;
+				continue;
 			}
-			DEBUG("Sending request...\n");
-			if (httpSend(param, param->header, hdrsize) != hdrsize) {
+
+			if ((param->sockfd = socket(AF_INET,SOCK_STREAM,0)) == -1) {
+				DEBUG("Failed to open socket\n");
+				ret = -1;
+				continue;
+			}
+
+			memset(&server_addr.sin_zero,0,8);
+			server_addr.sin_family = AF_INET;
+			server_addr.sin_addr.s_addr = ((struct in_addr *)(target_host->h_addr))->s_addr;
+			server_addr.sin_port = htons(param->port);
+			DEBUG("Connecting to server...\n");
+
+			if (connect(param->sockfd,(struct sockaddr *)&server_addr,sizeof(struct sockaddr)) < 0) {
+				DEBUG("Failed to connect\n");
+				ret = -1;
+				continue;
+			}
+		}
+		DEBUG("Sending request...\n");
+		if (httpSend(param, param->header, hdrsize) != hdrsize) {
 				closesocket(param->sockfd);
 				param->sockfd = 0;
 				ret = -1;
 				continue;;
-			}
+		}
 			break;
 		} while (--retry > 0);
 		if (ret == -1) break;
@@ -446,7 +449,7 @@ int httpPostFile(HTTP_REQUEST* req, char* url, char* fieldname, const char* file
 	POST_CHUNK chunk;
 	char *p;
 
-	httpInitReq(req, url, 0);
+	httpInitReq(req, 0);
 
 	fd = open(filename, O_BINARY | O_RDONLY);
 	if (fd <= 0) return -1;
@@ -466,7 +469,7 @@ int httpPostFile(HTTP_REQUEST* req, char* url, char* fieldname, const char* file
 	req->method = HM_POST_MULTIPART;
 	req->chunk = &chunk;
 	req->chunkCount = 1;
-	ret = httpRequest(req);
+	ret = httpRequest(req, url);
 	close(fd);
 	if (!ret) {
 		ret = httpGetResponse(req);
@@ -493,9 +496,8 @@ int PostFileStream(char* url, const char* filename)
 	else
 		req.filename++;
 
-	req.url = url;
 	req.method = HM_POST_STREAM;
-	ret = httpRequest(&req);
+	ret = httpRequest(&req, url);
 
 	while ((bytes = read(fd, buf, sizeof(buf))) > 0 
 		&& httpSend(&req, buf, bytes) == bytes);
