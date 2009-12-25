@@ -781,7 +781,11 @@ int _mwProcessReadSocket(HttpParam* hp, HttpSocket* phsSocket)
 			return -1;
 		} else {
 			// keep request path
-			for (i = 0; i < MAX_REQUEST_PATH_LEN && path[i] !=' '; i++);
+			for (i = 0; i < MAX_REQUEST_PATH_LEN; i++) {
+				if ((path[i] == ' ' && !strncmp(path + i + 1, "HTTP/", 5)) || path[i] == '\r') {
+					break;
+				}
+			}
 			if (i >= MAX_REQUEST_PATH_LEN) {
 				SETFLAG(phsSocket, FLAG_CONN_CLOSE);
 				return -1;
