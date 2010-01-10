@@ -62,6 +62,7 @@ typedef struct {
 	int payloadSize;
 	//info parsed from response header
 	char* contentType;
+	char* location;
 	int httpVer;	// 0 for 1.0, 1 for 1.1
 	int httpCode;
 	//Multipart-Post 
