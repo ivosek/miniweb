@@ -121,6 +121,10 @@ void httpClean(HTTP_REQUEST* param)
 		free(param->hostname);
 		param->hostname = 0;
 	}
+	if (param->header) {
+		free(param->header);
+		param->header = 0;
+	}
 }
 
 int httpRequest(HTTP_REQUEST* param, const char* url)
@@ -346,6 +350,8 @@ int httpGetResponse(HTTP_REQUEST* param)
 				if (!strncmp(p + 19, "chunked", 7)) {
 					param->flags |= FLAG_CHUNKED;
 				}
+			} else if (!stricmp(p, "Location")) {
+				param->location = q + 2;
 			}
 			*q = ':';
 		}
