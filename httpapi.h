@@ -141,7 +141,7 @@ typedef union {
 	unsigned long laddr;
 	unsigned short saddr[2];
 	unsigned char caddr[4];
-} IP;
+} IPADDR;
 
 typedef struct {
 	int iHttpVer;
@@ -201,7 +201,7 @@ typedef struct {
 typedef struct _HttpSocket{
 	struct _HttpSocket *next;
 	SOCKET socket;
-	IP ipAddr;
+	IPADDR ipAddr;
 
 	HttpRequest request;
 	HttpResponse response;
