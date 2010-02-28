@@ -9,6 +9,10 @@ SUBDIRNAME      :=httpd
 DEFINES		= HAVE_PTHREAD
 #endif
 
+#ifneq ($(DEBUG),yes)
+DEFINES     += NOCONSOLE HTTPD_DEBUG
+#endif
+
 ALTIVECFLAGS    =
 
 #ifdef THREAD

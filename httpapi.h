@@ -22,7 +22,7 @@
 #define min(x,y) (x>y?y:x)
 #endif
 
-#ifdef _DEBUG
+#ifdef HTTPD_DEBUG
 #define DBG printf
 #else
 #define DBG
