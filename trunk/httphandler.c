@@ -20,7 +20,7 @@ int uhStats(UrlHandlerParam* param)
 	char buf[128];
 	HttpStats *stats=&((HttpParam*)param->hp)->stats;
 	HttpRequest *req=&param->hs->request;
-	IP ip = param->hs->ipAddr;
+	IPADDR ip = param->hs->ipAddr;
 	HTTP_XML_NODE node;
 	int bufsize = param->dataBytes;
 	int ret=FLAG_DATA_RAW;
