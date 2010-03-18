@@ -234,6 +234,7 @@ typedef struct {
 	int dataBytes;
 	int contentBytes;
 	HttpFileType fileType;
+	void *p_sys;
 } UrlHandlerParam;
 
 typedef int (*PFNURLCALLBACK)(UrlHandlerParam*);
@@ -242,6 +243,7 @@ typedef struct {
 	char* pchUrlPrefix;
 	PFNURLCALLBACK pfnUrlHandler;
 	MW_EVENT_HANDLER pfnEventHandler;
+	void *p_sys;
 } UrlHandler;
 
 #define FLAG_DIR_LISTING 1

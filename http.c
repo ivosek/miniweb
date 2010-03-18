@@ -647,6 +647,7 @@ int _mwCheckUrlHandlers(HttpParam* hp, HttpSocket* phsSocket)
 			//URL prefix matches
 			memset(&up, 0, sizeof(up));
 			up.hp=hp;
+			up.p_sys = puh->p_sys;
 			up.hs = phsSocket;
 			up.dataBytes=phsSocket->bufferSize;
 			up.pucRequest=phsSocket->request.pucPath+prefixLen;
