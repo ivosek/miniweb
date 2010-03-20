@@ -10,7 +10,9 @@ DEFINES		= HAVE_PTHREAD
 #endif
 
 #ifneq ($(DEBUG),yes)
-DEFINES     += NOCONSOLE HTTPD_DEBUG
+DEFINES     += NOCONSOLE 
+#else
+DEFINES     += HTTPD_DEBUG
 #endif
 
 ALTIVECFLAGS    =
