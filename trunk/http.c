@@ -44,7 +44,9 @@ const char* contentTypeTable[]={
 	"video/x-mpeg-avc",
 	"video/flv",
 	"application/octet-stream",
-	"application/x-datastream"
+	"application/x-datastream",
+    "video/MP2T",
+    "application/x-mpegURL",
 };
 
 char* defaultPages[]={"index.htm","index.html","default.htm","main.xul"};

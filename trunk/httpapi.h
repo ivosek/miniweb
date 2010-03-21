@@ -1,4 +1,4 @@
-///////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////
 //
 // httpapi.h
 //
@@ -76,6 +76,8 @@ typedef enum {
   HTTPFILETYPE_FLV,
   HTTPFILETYPE_OCTET,
   HTTPFILETYPE_STREAM,
+  HTTPFILETYPE_TS,
+  HTTPFILETYPE_M3U8,
 } HttpFileType;
 
 #define MAXPOSTPARAMS 50
