@@ -248,6 +248,15 @@ typedef struct {
 	void *p_sys;
 } UrlHandler;
 
+#ifndef DISABLE_BASIC_WWWAUTH
+typedef struct {
+	char* pchUrlPrefix;
+	char pchUsername[MAX_PATH];
+	char pchPassword[MAX_PATH];
+	char *pchAuthString;
+} AuthHandler;
+#endif
+
 #define FLAG_DIR_LISTING 1
 
 typedef struct _httpParam {
@@ -261,6 +270,9 @@ typedef struct _httpParam {
 	int socketRcvBufSize;	/* socket receive buffer size in KB */
 	char *pchWebPath;
 	UrlHandler *pxUrlHandler;		/* pointer to URL handler array */
+#ifndef DISABLE_BASIC_WWWAUTH
+	AuthHandler *pxAuthHandler;     /* pointer to authorization handler array */
+#endif
 	// substitution callback
 	PFNSUBSTCALLBACK pfnSubst;
 	// post callbacks
