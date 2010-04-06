@@ -1595,6 +1595,8 @@ int mwGetContentType(const char *pchExtname)
 		case FILEEXT_MOV:	return HTTPFILETYPE_MOV;
 		case FILEEXT_264:	return HTTPFILETYPE_264;
 		case FILEEXT_FLV:	return HTTPFILETYPE_FLV;
+		case FILEEXT_TS:	return HTTPFILETYPE_TS;
+		case FILEEXT_M3U8:	return HTTPFILETYPE_M3U8;
 		}
 	} else if (pchExtname[4]=='\0' || pchExtname[4]=='?') {
 		//logic-and with 0xdfdfdfdf gets the uppercase of 4 chars

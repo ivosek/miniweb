@@ -69,6 +69,8 @@
 #define FILEEXT_MOV DEFDWORD('M','O','V',0)
 #define FILEEXT_FLV DEFDWORD('F','L','V',0)
 #define FILEEXT_264 DEFDWORD('2' - 32, '6' - 32, '4' - 32, 0)
+#define FILEEXT_TS DEFDWORD('T', 'S', 0, 0)
+#define FILEEXT_M3U8 DEFDWORD('M', '3' - 32, 'U', '8' - 32)
 
 // Settings for http server
 #define HTTP_EXPIRATION_TIME (60/*secs*/)
