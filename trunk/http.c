@@ -636,6 +636,90 @@ int mwParseQueryString(UrlHandlerParam* up)
 	return up->iVarCount;
 }
 
+#ifndef DISABLE_BASIC_WWWAUTH
+////////////////////////////////////////////////////////////////////////////
+// _mwBase64Encode
+// buffer size of out_str is (in_len * 4 / 3 + 1)
+////////////////////////////////////////////////////////////////////////////
+void _mwBase64Encode(const char *in_str, int in_len, char *out_str)
+{ 
+	const char base64[] ="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+	int curr_out_len = 0;
+	int i = 0;
+	char a, b, c;
+	
+	out_str[0] = '\0';
+
+	if (in_len <= 0) return;
+
+	while (i < in_len) {
+		a = in_str[i];
+		b = (i + 1 >= in_len) ? 0 : in_str[i + 1];
+		c = (i + 2 >= in_len) ? 0 : in_str[i + 2];
+		if (i + 2 < in_len) {
+			 out_str[curr_out_len++] = (base64[(a >> 2) & 0x3F]);
+			 out_str[curr_out_len++] = (base64[((a << 4) & 0x30) + ((b >> 4) & 0xf)]);
+			 out_str[curr_out_len++] = (base64[((b << 2) & 0x3c) + ((c >> 6) & 0x3)]);
+			 out_str[curr_out_len++] = (base64[c & 0x3F]);
+		}
+		else if (i + 1 < in_len) {
+			out_str[curr_out_len++] = (base64[(a >> 2) & 0x3F]);
+			out_str[curr_out_len++] = (base64[((a << 4) & 0x30) + ((b >> 4) & 0xf)]);
+			out_str[curr_out_len++] = (base64[((b << 2) & 0x3c) + ((c >> 6) & 0x3)]);
+			out_str[curr_out_len++] = '=';
+		}
+		else {
+			out_str[curr_out_len++] = (base64[(a >> 2) & 0x3F]);
+			out_str[curr_out_len++] = (base64[((a << 4) & 0x30) + ((b >> 4) & 0xf)]);
+			out_str[curr_out_len++] = '=';
+			out_str[curr_out_len++] = '=';
+		}
+		i += 3;
+	}
+
+	out_str[curr_out_len] = '\0';
+}
+
+char *_mwGetBaisAuthorization(const char* username, const char* password)
+{
+	const char prefix[] = "Authorization: Basic ";
+	int len = strlen(username) + 1 + strlen(password);
+	char *tmp = malloc(len + 1);
+	char *out = malloc(sizeof(prefix) + (len * 4 / 3 + 1) + 2);
+	char *p = out + sizeof(prefix) - 1;
+
+	sprintf(tmp, "%s:%s", username, password);
+	strcpy(out, prefix);
+	_mwBase64Encode(tmp, len, p);
+	p += strlen(p);
+	p[0] = '\r'; p[1] = '\n'; p[2] = '\0';
+
+	free(tmp);
+
+	return out;
+}
+
+////////////////////////////////////////////////////////////////////////////
+// _mwBasicAuthorizationHandlers
+// Basic Authorization implement
+// RETURN VALUE: 0 (OK), -1(failed), 1(Authorization needed)
+////////////////////////////////////////////////////////////////////////////
+int _mwBasicAuthorizationHandlers(HttpParam* hp, HttpSocket* phsSocket)
+{
+	AuthHandler* pah;
+
+	for (pah=hp->pxAuthHandler; pah && pah->pchUrlPrefix; pah++) {
+		if (pah->pchUsername == NULL || *pah->pchUsername == '\0' ||
+			pah->pchPassword == NULL || *pah->pchPassword == '\0') continue;
+		if (pah->pchAuthString == NULL) pah->pchAuthString = 
+				_mwGetBaisAuthorization(pah->pchUsername, pah->pchPassword);
+		//TODO here!
+	}
+
+	return 0;
+}
+#endif
+
 int _mwCheckUrlHandlers(HttpParam* hp, HttpSocket* phsSocket)
 {
 	UrlHandler* puh;
@@ -643,7 +727,7 @@ int _mwCheckUrlHandlers(HttpParam* hp, HttpSocket* phsSocket)
 	int ret=0;
 
 	up.pxVars=NULL;
-	for (puh=hp->pxUrlHandler; puh->pchUrlPrefix; puh++) {
+	for (puh=hp->pxUrlHandler; puh && puh->pchUrlPrefix; puh++) {
 		size_t prefixLen=strlen(puh->pchUrlPrefix);
 		if (puh->pfnUrlHandler && !strncmp(phsSocket->request.pucPath,puh->pchUrlPrefix,prefixLen)) {
 			//URL prefix matches
