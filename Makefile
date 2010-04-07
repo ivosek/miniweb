@@ -9,11 +9,11 @@ SUBDIRNAME      :=httpd
 DEFINES		= HAVE_PTHREAD
 #endif
 
-#ifneq ($(DEBUG),yes)
-DEFINES     += NOCONSOLE 
-#else
-DEFINES     += HTTPD_DEBUG
-#endif
+ifneq ($(DEBUG),yes)
+  DEFINES     += NOCONSOLE 
+else
+  DEFINES     += HTTPD_DEBUG
+endif
 
 ALTIVECFLAGS    =
 
