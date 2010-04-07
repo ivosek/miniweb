@@ -22,7 +22,6 @@
 // global variables
 ////////////////////////////////////////////////////////////////////////////
 // default pages
-const char g_chPasswordPage[]="password.htm";
 
 const char* contentTypeTable[]={
 	"application/octet-stream",
@@ -45,8 +44,8 @@ const char* contentTypeTable[]={
 	"video/flv",
 	"application/octet-stream",
 	"application/x-datastream",
-    "video/MP2T",
-    "application/x-mpegURL",
+	"video/MP2T",
+	"application/x-mpegURL",
 };
 
 char* defaultPages[]={"index.htm","index.html","default.htm","main.xul"};
@@ -465,6 +464,7 @@ void* _mwHttpThread(HttpParam *hp)
 				if (hp->stats.clientCount>hp->stats.clientCountMax) hp->stats.clientCountMax=hp->stats.clientCount;
 			}
 		} else {
+			//DBG("Select Timeout\n");
 			HttpSocket *phsSocketPrev=NULL;
 			// select timeout
 			// clean up the link list
@@ -1183,17 +1183,6 @@ int _mwStartSendFile(HttpParam* hp, HttpSocket* phsSocket)
 	struct stat st;
 	HttpFilePath hfp;
 
-#ifdef HTTPAUTH
-	// check if authenticated
-	if (FALSE == _mwCheckAuthentication(phsSocket)) {
-		// Not authenticated
-		if (phsSocket->response.fileType==HTTPFILETYPE_HTML) {
-		// send password page only
-			pchFilename=(char*)g_chPasswordPage;
-		}
-	}
-#endif
-
 	hfp.pchRootPath=hp->pchWebPath;
 	// check type of file requested
 	if (!ISFLAGSET(phsSocket, FLAG_DATA_FD)) {
@@ -1249,16 +1238,17 @@ int _mwStartSendFile(HttpParam* hp, HttpSocket* phsSocket)
 		return -1;
 	}
 
-
 	if (phsSocket->fd < 0) {
 		char *p;
 		int i;
+
 		if (!(st.st_mode & S_IFDIR)) {
 			// file/dir not found
 			_mwSend404Page(phsSocket);
 			return -1;
 		}
 		
+		DBG("Process Directory...\n");
 		//requesting for directory, first try opening default pages
 		for (p = hfp.cFilePath; *p; p++);
 		*(p++)=SLASH;
@@ -1680,13 +1670,13 @@ int mwGetContentType(const char *pchExtname)
 		case FILEEXT_264:	return HTTPFILETYPE_264;
 		case FILEEXT_FLV:	return HTTPFILETYPE_FLV;
 		case FILEEXT_TS:	return HTTPFILETYPE_TS;
-		case FILEEXT_M3U8:	return HTTPFILETYPE_M3U8;
 		}
 	} else if (pchExtname[4]=='\0' || pchExtname[4]=='?') {
 		//logic-and with 0xdfdfdfdf gets the uppercase of 4 chars
 		switch (GETDWORD(pchExtname)&0xdfdfdfdf) {
 		case FILEEXT_HTML:	return HTTPFILETYPE_HTML;
 		case FILEEXT_MPEG:	return HTTPFILETYPE_MPEG;
+		case FILEEXT_M3U8:	return HTTPFILETYPE_M3U8;
 		}
 	}
 	return HTTPFILETYPE_OCTET;
