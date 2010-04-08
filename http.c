@@ -433,9 +433,15 @@ void* _mwHttpThread(HttpParam *hp)
 			}
 
 			// check if any socket to accept and accept the socket
-			if (FD_ISSET(hp->listenSocket, &fdsSelectRead) &&
-					hp->stats.clientCount<hp->maxClients &&
-					(socket=_mwAcceptSocket(hp,&sinaddr))) {
+			if (FD_ISSET(hp->listenSocket, &fdsSelectRead)) {
+				if (hp->stats.clientCount > hp->maxClients) {
+					DBG("WARNING: clientCount:%d > maxClients:%d\n", hp->stats.clientCount, hp->maxClients);
+					msleep(200);
+				}
+
+				socket = _mwAcceptSocket(hp,&sinaddr);
+				if (socket == 0) continue;
+
 				// create a new socket structure and insert it in the linked list
 				phsSocketCur=(HttpSocket*)malloc(sizeof(HttpSocket));
 				if (!phsSocketCur) {
