@@ -56,7 +56,13 @@ int ThreadCreate(pthread_t *pth, void* (*start_routine)(void*), void* arg)
 	*pth=CreateThread(0,0,(LPTHREAD_START_ROUTINE)start_routine,arg,0,&dwid);
 	return *pth!=NULL?0:1;
 #else
-	return pthread_create(pth,NULL,start_routine, arg);
+      pthread_attr_t attr;
+      pthread_attr_init(&attr);
+	  // Change policy
+	  pthread_attr_setschedpolicy(&attr,   SCHED_RR);
+	  int ret = pthread_create(pth, &attr, start_routine, arg);
+      pthread_attr_destroy(&attr);
+      return ret;
 #endif
 }
 
