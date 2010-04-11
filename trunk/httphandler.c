@@ -205,3 +205,56 @@ int uhFileStream(UrlHandlerParam* param)
 	return FLAG_DATA_SOCKET;
 }
 
+
+//////////////////////////////////////////////////////////////////////////
+// stream handler sample
+//////////////////////////////////////////////////////////////////////////
+typedef struct {
+	int state;
+	HANDLE hThread;
+	char result[16];
+} HANDLER_DATA;
+
+void WriteContent(HANDLER_DATA* hdata)
+{
+	char *p = hdata->result;
+	int i;
+	for (i = 0; i < 10; i++, p++) {
+		*p = '0' + i;
+		Sleep(100);
+	}
+	*p = 0;
+}
+
+int uhAsyncDataTest(UrlHandlerParam* param)
+{
+	int ret = FLAG_DATA_STREAM | FLAG_TO_FREE;
+	HANDLER_DATA* hdata = (HANDLER_DATA*)param->hs->ptr;
+	
+	if (param->pucBuffer) {
+		if (!hdata) {
+			// first invoke
+			hdata = param->hs->ptr = calloc(1, sizeof(HANDLER_DATA));
+			hdata->hThread = CreateThread(0, 0, (LPTHREAD_START_ROUTINE)WriteContent, hdata, 0, 0);
+			param->dataBytes = 0;
+		} else {
+			if (hdata->state == 1) {
+				// done
+				ret = 0;
+			} else if (WaitForSingleObject(hdata->hThread, 10) == WAIT_TIMEOUT) {
+				// data not ready
+				param->dataBytes = 0;
+			} else {
+				// data ready
+				strcpy(param->pucBuffer, hdata->result);
+				param->dataBytes = strlen(param->pucBuffer);
+				CloseHandle(hdata->hThread);
+				hdata->state = 1;
+			}
+		}
+	} else {
+		ret = 0;
+	}
+	param->fileType=HTTPFILETYPE_TEXT;
+	return ret;
+}

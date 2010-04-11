@@ -26,9 +26,11 @@ int ehVod(MW_EVENT msg, int argi, void* argp);
 int uhTest(UrlHandlerParam* param);
 int uh7Zip(UrlHandlerParam* param);
 int uhFileStream(UrlHandlerParam* param);
+int uhAsyncDataTest(UrlHandlerParam* param);
 
 UrlHandler urlHandlerList[]={
 	{"stats", uhStats, NULL},
+	{"async", uhAsyncDataTest, NULL},
 	{"getfile", uhFileStream, NULL},
 #ifdef MEDIA_SERVER
 	{"MediaServer/VideoItems/", uhMediaItemsTranscode, ehMediaItemsEvent},
@@ -135,7 +137,7 @@ int MiniWebQuit(int arg) {
 
 int main(int argc,char* argv[])
 {
-	printf("MiniWeb %d.%d.%d (C)2005-07 Written by Stanley Huang\n\n",VER_MAJOR,VER_MINOR,BUILD_NO);
+	printf("MiniWeb %d.%d.%d (C)2005-09 Stanley Huang (C)2010 Stanley Huang / Felix Wang\n\n",VER_MAJOR,VER_MINOR,BUILD_NO);
 
 #ifdef WIN32
 	SetConsoleCtrlHandler( (PHANDLER_ROUTINE) MiniWebQuit, TRUE );

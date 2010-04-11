@@ -756,18 +756,18 @@ int _mwCheckUrlHandlers(HttpParam* hp, HttpSocket* phsSocket)
 				phsSocket->flags|=ret;
 				phsSocket->response.fileType=up.fileType;
 				hp->stats.urlProcessCount++;
-				if (ret & FLAG_TO_FREE) {
-					phsSocket->ptr=up.pucBuffer;	//keep the pointer which will be used to free memory later
-				}
 				phsSocket->handler = puh;
 				if (ret & FLAG_DATA_RAW) {
 					SETFLAG(phsSocket, FLAG_DATA_RAW);
 					phsSocket->pucData=up.pucBuffer;
 					phsSocket->dataLength=up.dataBytes;
 					phsSocket->response.contentLength=up.contentBytes>0?up.contentBytes:up.dataBytes;
+					if (ret & FLAG_TO_FREE) {
+						phsSocket->ptr=up.pucBuffer;	//keep the pointer which will be used to free memory later
+					}
 					DBG("URL handler: raw data\n");
 				} else if (ret & FLAG_DATA_STREAM) {
-					SETFLAG(phsSocket, FLAG_DATA_STREAM | FLAG_CONN_CLOSE);
+					SETFLAG(phsSocket, FLAG_DATA_STREAM);
 					phsSocket->pucData = up.pucBuffer;
 					phsSocket->dataLength = up.dataBytes;
 					DBG("URL handler: stream\n");
@@ -975,7 +975,6 @@ done:
 		hp->stats.reqGetCount++;
 		if (phsSocket->request.iHttpVer == 0) {
 			CLRFLAG(phsSocket, FLAG_CHUNK);
-			SETFLAG(phsSocket, FLAG_CONN_CLOSE);
 		}
 		if (ISFLAGSET(phsSocket,FLAG_DATA_RAW | FLAG_DATA_STREAM)) {
 			return _mwStartSendRawData(hp, phsSocket);
@@ -996,7 +995,7 @@ done:
 ////////////////////////////////////////////////////////////////////////////
 int _mwProcessWriteSocket(HttpParam *hp, HttpSocket* phsSocket)
 {
-	if (phsSocket->dataLength<=0) {
+	if (phsSocket->dataLength<=0 && !ISFLAGSET(phsSocket,FLAG_DATA_STREAM)) {
 		SYSLOG(LOG_INFO,"[%d] Data sending completed (%d/%d)\n",phsSocket->socket,phsSocket->response.sentBytes,phsSocket->response.contentLength);
 		return 1;
 	}
@@ -1431,18 +1430,20 @@ int _mwSendRawDataChunk(HttpParam *hp, HttpSocket* phsSocket)
 		iBytesWritten = send(phsSocket->socket, buf, bytes, 0);
 	}
     // send a chunk of data
-	iBytesWritten=(int)send(phsSocket->socket, phsSocket->pucData,(int)phsSocket->dataLength, 0);
-    if (iBytesWritten<=0) {
-		// failure - close connection
-		SYSLOG(LOG_INFO,"Connection closed\n");
-		SETFLAG(phsSocket,FLAG_CONN_CLOSE);
-		_mwCloseSocket(hp, phsSocket);
-		return -1;
-    } else {
-		SYSLOG(LOG_INFO,"[%d] sent %d bytes of raw data\n",phsSocket->socket,iBytesWritten);
-		phsSocket->response.sentBytes+=iBytesWritten;
-		phsSocket->pucData+=iBytesWritten;
-		phsSocket->dataLength-=iBytesWritten;
+	if (phsSocket->dataLength > 0) {
+		iBytesWritten=(int)send(phsSocket->socket, phsSocket->pucData, phsSocket->dataLength, 0);
+		if (iBytesWritten<=0) {
+			// failure - close connection
+			SYSLOG(LOG_INFO,"Connection closed\n");
+			SETFLAG(phsSocket,FLAG_CONN_CLOSE);
+			_mwCloseSocket(hp, phsSocket);
+			return -1;
+		} else {
+			SYSLOG(LOG_INFO,"[%d] sent %d bytes of raw data\n",phsSocket->socket,iBytesWritten);
+			phsSocket->response.sentBytes+=iBytesWritten;
+			phsSocket->pucData+=iBytesWritten;
+			phsSocket->dataLength-=iBytesWritten;
+		}
 	}
 	if (ISFLAGSET(phsSocket,FLAG_DATA_STREAM) && phsSocket->handler) {
 		//load next chuck of raw data
@@ -1450,12 +1451,13 @@ int _mwSendRawDataChunk(HttpParam *hp, HttpSocket* phsSocket)
 		UrlHandler* pfnHandler = (UrlHandler*)phsSocket->handler;
 		up.hs = phsSocket;
 		up.hp = hp;
-		up.pucBuffer=phsSocket->buffer;
+		up.pucBuffer=phsSocket->pucData;
 		up.dataBytes=HTTP_BUFFER_SIZE;
 		if ((pfnHandler->pfnUrlHandler)(&up) == 0) {
 			if (phsSocket->flags & FLAG_CHUNK) {
 				send(phsSocket->socket, "0\r\n\r\n", 5, 0);
 			}
+			SETFLAG(phsSocket, FLAG_CONN_CLOSE);
 			return 1;	// EOF
 		}
 		phsSocket->dataLength=up.dataBytes;
@@ -1712,9 +1714,6 @@ int _mwParseHttpHeader(HttpSocket* phsSocket)
 	if (!p) return -1;
 	p += 7;
 	req->iHttpVer = (*p - '0');
-	if (req->iHttpVer > 0) {
-		CLRFLAG(phsSocket,FLAG_CONN_CLOSE);
-	}
 	//analyze rest of the header
 	for(;;) {
 		//look for a valid field name
