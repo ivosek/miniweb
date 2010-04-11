@@ -767,7 +767,7 @@ int _mwCheckUrlHandlers(HttpParam* hp, HttpSocket* phsSocket)
 					phsSocket->response.contentLength=up.contentBytes>0?up.contentBytes:up.dataBytes;
 					DBG("URL handler: raw data\n");
 				} else if (ret & FLAG_DATA_STREAM) {
-					SETFLAG(phsSocket, FLAG_DATA_STREAM);
+					SETFLAG(phsSocket, FLAG_DATA_STREAM | FLAG_CONN_CLOSE);
 					phsSocket->pucData = up.pucBuffer;
 					phsSocket->dataLength = up.dataBytes;
 					DBG("URL handler: stream\n");
@@ -1712,6 +1712,9 @@ int _mwParseHttpHeader(HttpSocket* phsSocket)
 	if (!p) return -1;
 	p += 7;
 	req->iHttpVer = (*p - '0');
+	if (req->iHttpVer > 0) {
+		CLRFLAG(phsSocket,FLAG_CONN_CLOSE);
+	}
 	//analyze rest of the header
 	for(;;) {
 		//look for a valid field name
