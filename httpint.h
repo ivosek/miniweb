@@ -73,7 +73,7 @@
 #define FILEEXT_M3U8 DEFDWORD('M', '3' - 32, 'U', '8' - 32)
 
 // Settings for http server
-#define HTTP_EXPIRATION_TIME (60/*secs*/)
+#define HTTP_EXPIRATION_TIME (120/*secs*/)
 #define HTTP_KEEPALIVE_TIME (15/*secs*/)
 #define MAX_RECV_RETRIES (3/*times*/)
 #define HTTPAUTHTIMEOUT   (300/*secs*/)
