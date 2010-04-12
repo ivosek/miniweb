@@ -251,6 +251,7 @@ int uhAsyncDataTest(UrlHandlerParam* param)
 			}
 		}
 	} else {
+		// cleanup
 		ret = 0;
 	}
 	param->fileType=HTTPFILETYPE_TEXT;

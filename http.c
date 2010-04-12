@@ -137,9 +137,9 @@ int mwServerStart(HttpParam* hp)
 
 	if (!(hp->listenSocket=_mwStartListening(hp))) return -1;
 
-	hp->stats.startTime= time(NULL);
-	hp->bKillWebserver = FALSE;
-	hp->bWebserverRunning = TRUE;
+	hp->stats.startTime=time(NULL);
+	hp->bKillWebserver=FALSE;
+	hp->bWebserverRunning=TRUE;
 	if (!hp->tmSocketExpireTime) hp->tmSocketExpireTime = HTTP_EXPIRATION_TIME;
 
 #ifndef NOTHREAD
@@ -770,6 +770,7 @@ int _mwCheckUrlHandlers(HttpParam* hp, HttpSocket* phsSocket)
 					SETFLAG(phsSocket, FLAG_DATA_STREAM);
 					phsSocket->pucData = up.pucBuffer;
 					phsSocket->dataLength = up.dataBytes;
+					phsSocket->response.contentLength = up.dataBytes;
 					DBG("URL handler: stream\n");
 				} else if (ret & FLAG_DATA_FILE) {
 					SETFLAG(phsSocket, FLAG_DATA_FILE);
@@ -1444,29 +1445,30 @@ int _mwSendRawDataChunk(HttpParam *hp, HttpSocket* phsSocket)
 			phsSocket->pucData+=iBytesWritten;
 			phsSocket->dataLength-=iBytesWritten;
 		}
-	}
-	if (ISFLAGSET(phsSocket,FLAG_DATA_STREAM) && phsSocket->handler) {
-		//load next chuck of raw data
-		UrlHandlerParam up;
-		UrlHandler* pfnHandler = (UrlHandler*)phsSocket->handler;
-		up.hs = phsSocket;
-		up.hp = hp;
-		up.pucBuffer=phsSocket->pucData;
-		up.dataBytes=HTTP_BUFFER_SIZE;
-		if ((pfnHandler->pfnUrlHandler)(&up) == 0) {
+	} else {
+		if (ISFLAGSET(phsSocket,FLAG_DATA_STREAM) && phsSocket->handler) {
+			//load next chuck of raw data
+			UrlHandlerParam up;
+			UrlHandler* pfnHandler = (UrlHandler*)phsSocket->handler;
+			up.hs = phsSocket;
+			up.hp = hp;
+			up.pucBuffer=phsSocket->pucData;
+			up.dataBytes=HTTP_BUFFER_SIZE;
+			if ((pfnHandler->pfnUrlHandler)(&up) == 0) {
+				if (phsSocket->flags & FLAG_CHUNK) {
+					send(phsSocket->socket, "0\r\n\r\n", 5, 0);
+				}
+				SETFLAG(phsSocket, FLAG_CONN_CLOSE);
+				return 1;	// EOF
+			}
+			phsSocket->dataLength=up.dataBytes;
+			phsSocket->pucData = up.pucBuffer;
+		} else {
 			if (phsSocket->flags & FLAG_CHUNK) {
 				send(phsSocket->socket, "0\r\n\r\n", 5, 0);
 			}
-			SETFLAG(phsSocket, FLAG_CONN_CLOSE);
-			return 1;	// EOF
+			return 1;
 		}
-		phsSocket->dataLength=up.dataBytes;
-		phsSocket->pucData = up.pucBuffer;
-	} else if (phsSocket->dataLength == 0) {
-		if (phsSocket->flags & FLAG_CHUNK) {
-			send(phsSocket->socket, "0\r\n\r\n", 5, 0);
-		}
-		return 1;
 	}
 	return 0;
 } // end of _mwSendRawDataChunk
