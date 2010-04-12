@@ -137,9 +137,9 @@ int mwServerStart(HttpParam* hp)
 
 	if (!(hp->listenSocket=_mwStartListening(hp))) return -1;
 
-	hp->stats.startTime=time(NULL);
-	hp->bKillWebserver=FALSE;
-	hp->bWebserverRunning=TRUE;
+	hp->stats.startTime= time(NULL);
+	hp->bKillWebserver = FALSE;
+	hp->bWebserverRunning = TRUE;
 	if (!hp->tmSocketExpireTime) hp->tmSocketExpireTime = HTTP_EXPIRATION_TIME;
 
 #ifndef NOTHREAD
