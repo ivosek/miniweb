@@ -24,7 +24,7 @@ LDFLAGS	=
 #endif
 
 LIBNAME =libhttpd.a
-SRCS = httppil.c http.c httpxml.c httphandler.c
+SRCS = httppil.c http.c httpxml.c
 
 ifdef APPMINI
 APPNAME = httpd
