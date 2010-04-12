@@ -291,6 +291,7 @@ SOCKET _mwStartListening(HttpParam* hp)
 #endif
 
     // listen on the socket for incoming calls
+	DBG("Attempting to listening on port %d with socket %d\n", hp->httpPort, listenSocket);
 	if (listen(listenSocket,hp->maxClients-1)) {
 		DBG("Unable to listen on socket %d\n",listenSocket);
 		return 0;
