@@ -135,7 +135,10 @@ int mwServerStart(HttpParam* hp)
 	hp->szctx = SzInit();
 #endif
 
-	if (!(hp->listenSocket=_mwStartListening(hp))) return -1;
+	if (!(hp->listenSocket=_mwStartListening(hp))) {
+		DBG("Error listening on port %d\n", hp->httpPort);
+		return -1;
+	}
 
 	hp->stats.startTime=time(NULL);
 	hp->bKillWebserver=FALSE;
