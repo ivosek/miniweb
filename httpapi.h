@@ -29,10 +29,6 @@
 #endif
 #define LOG_ERR 1
 
-#ifdef WIN32
-#ifndef pthread_t
-#endif
-#endif
 #define ASSERT
 #define GETDWORD(ptrData) (*(DWORD*)(ptrData))
 #define SETDWORD(ptrData,data) (*(DWORD*)(ptrData)=data)
