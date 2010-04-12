@@ -247,7 +247,10 @@ SOCKET _mwStartListening(HttpParam* hp)
 
     // create a new socket
     listenSocket=socket(AF_INET,SOCK_STREAM,0);
-    if (listenSocket<0) return 0;
+	if (listenSocket == INVALID_SOCKET) {
+		DBG("Error creating socket.\n");
+		return 0;
+	}
 
 #if 0
     // allow reuse of port number
