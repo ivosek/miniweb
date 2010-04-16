@@ -39,6 +39,7 @@
 #define HTTP404_HEADER "HTTP/1.1 404 Not Found\r\nServer: %s\r\nConnection: Keep-Alive\r\nContent-length: %d\r\nContent-Type: text/html\r\n\r\n"
 #define HTTP404_BODY "<html><head><title>404 Not Found</title></head><body><h1>Not Found</h1><p>The requested URL was not found on this server.</p></body></html>"
 #define HTTPBODY_REDIRECT "<html><head><meta http-equiv=\"refresh\" content=\"0; URL=%s\"></head><body></body></html>"
+#define HTTP301_HEADER "HTTP/1.1 301 Moved Permanently\r\nLocation: %s\r\n\r\n"
 #define HTTP_CONTENTLENGTH "Content-Length:"
 #define HTTP_MULTIPARTHEADER "multipart/form-data"
 #define HTTP_MULTIPARTCONTENT "Content-Disposition: form-data; name="
