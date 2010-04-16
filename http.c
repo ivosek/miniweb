@@ -756,11 +756,11 @@ int _mwCheckUrlHandlers(HttpParam* hp, HttpSocket* phsSocket)
 			up.iVarCount=-1;
 			ret=(*puh->pfnUrlHandler)(&up);
 			if (!ret) continue;
+			phsSocket->flags|=ret;
 			if (ret & FLAG_DATA_REDIRECT) {
 				_mwRedirect(phsSocket, up.pucBuffer);
-				DBG("URL handler: redirect\n");
+				DBG("URL handler: redirect to %s\n", up.pucBuffer);
 			} else {
-				phsSocket->flags|=ret;
 				phsSocket->response.fileType=up.fileType;
 				hp->stats.urlProcessCount++;
 				phsSocket->handler = puh;
@@ -989,7 +989,7 @@ done:
 		} else if (ISFLAGSET(phsSocket,FLAG_DATA_FILE)) {
 			// send requested page
 			return _mwStartSendFile(hp,phsSocket);
-		} else if (ISFLAGSET(phsSocket,FLAG_DATA_SOCKET)) {
+		} else if (ISFLAGSET(phsSocket,FLAG_DATA_SOCKET | FLAG_DATA_REDIRECT)) {
 			return 0;
 		}
 	}
@@ -1507,6 +1507,7 @@ void _mwRedirect(HttpSocket* phsSocket, char* pchPath)
 	char hdr[128];
 	int n = _snprintf(hdr, sizeof(hdr), HTTP301_HEADER, pchPath);
 	send(phsSocket->socket, hdr, n, 0);
+	SETFLAG(phsSocket, FLAG_CONN_CLOSE);
 } // end of _mwRedirect
 
 ////////////////////////////////////////////////////////////////////////////
