@@ -1003,6 +1003,9 @@ done:
 ////////////////////////////////////////////////////////////////////////////
 int _mwProcessWriteSocket(HttpParam *hp, HttpSocket* phsSocket)
 {
+	if (ISFLAGSET(phsSocket,FLAG_DATA_REDIRECT)) {
+		return 1;
+	}
 	if (phsSocket->dataLength<=0 && !ISFLAGSET(phsSocket,FLAG_DATA_STREAM)) {
 		SYSLOG(LOG_INFO,"[%d] Data sending completed (%d/%d)\n",phsSocket->socket,phsSocket->response.sentBytes,phsSocket->response.contentLength);
 		return 1;
@@ -1313,6 +1316,7 @@ int _mwStartSendFile(HttpParam* hp, HttpSocket* phsSocket)
 		}
 	} else {
 		_mwSend404Page(phsSocket);
+		return -1;
 	}
 
 	//SYSLOG(LOG_INFO,"File/requested size: %d/%d\n",st.st_size,phsSocket->response.contentLength);
@@ -1486,6 +1490,7 @@ int _mwSendRawDataChunk(HttpParam *hp, HttpSocket* phsSocket)
 ////////////////////////////////////////////////////////////////////////////
 void _mwRedirect(HttpSocket* phsSocket, char* pchPath)
 {
+	/*
 	char* path;
 	// raw (not file) data send mode
 	SETFLAG(phsSocket,FLAG_DATA_RAW);
@@ -1498,6 +1503,10 @@ void _mwRedirect(HttpSocket* phsSocket, char* pchPath)
 	phsSocket->dataLength=snprintf(phsSocket->pucData, 512, HTTPBODY_REDIRECT,path);
 	phsSocket->response.contentLength=phsSocket->dataLength;
 	if (path != pchPath) free(path);
+	*/
+	char hdr[128];
+	int n = _snprintf(hdr, sizeof(hdr), HTTP301_HEADER, pchPath);
+	send(phsSocket->socket, hdr, n, 0);
 } // end of _mwRedirect
 
 ////////////////////////////////////////////////////////////////////////////
