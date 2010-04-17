@@ -1505,7 +1505,7 @@ void _mwRedirect(HttpSocket* phsSocket, char* pchPath)
 	if (path != pchPath) free(path);
 	*/
 	char hdr[128];
-	int n = _snprintf(hdr, sizeof(hdr), HTTP301_HEADER, pchPath);
+	int n = _snprintf(hdr, sizeof(hdr), HTTP301_HEADER, HTTP_SERVER_NAME, pchPath);
 	send(phsSocket->socket, hdr, n, 0);
 	SETFLAG(phsSocket, FLAG_CONN_CLOSE);
 } // end of _mwRedirect
@@ -1675,6 +1675,7 @@ int mwGetContentType(const char *pchExtname)
 	} else if (pchExtname[2]=='\0') {
 		switch (GETDWORD(pchExtname) & 0xffdfdf) {
 		case FILEEXT_JS: return HTTPFILETYPE_JS;
+		case FILEEXT_TS: return HTTPFILETYPE_TS;
 		}
 	} else if (pchExtname[3]=='\0' || pchExtname[3]=='?') {
 		//identify 3-char file extensions
@@ -1696,7 +1697,6 @@ int mwGetContentType(const char *pchExtname)
 		case FILEEXT_MOV:	return HTTPFILETYPE_MOV;
 		case FILEEXT_264:	return HTTPFILETYPE_264;
 		case FILEEXT_FLV:	return HTTPFILETYPE_FLV;
-		case FILEEXT_TS:	return HTTPFILETYPE_TS;
 		}
 	} else if (pchExtname[4]=='\0' || pchExtname[4]=='?') {
 		//logic-and with 0xdfdfdfdf gets the uppercase of 4 chars
