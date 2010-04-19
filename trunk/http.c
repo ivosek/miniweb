@@ -1505,7 +1505,7 @@ void _mwRedirect(HttpSocket* phsSocket, char* pchPath)
 	if (path != pchPath) free(path);
 	*/
 	char hdr[128];
-	int n = _snprintf(hdr, sizeof(hdr), HTTP301_HEADER, HTTP_SERVER_NAME, pchPath);
+	int n = snprintf(hdr, sizeof(hdr), HTTP301_HEADER, HTTP_SERVER_NAME, pchPath);
 	send(phsSocket->socket, hdr, n, 0);
 	SETFLAG(phsSocket, FLAG_CONN_CLOSE);
 } // end of _mwRedirect
