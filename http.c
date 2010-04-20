@@ -44,6 +44,7 @@ const char* contentTypeTable[]={
 	"video/flv",
 	"video/MP2T",
 	"video/3gpp",
+	"video/x-ms-asf",
 	"application/octet-stream",
 	"application/x-datastream",
 	"application/x-mpegURL",
@@ -1699,6 +1700,7 @@ int mwGetContentType(const char *pchExtname)
 		case FILEEXT_264:	return HTTPFILETYPE_264;
 		case FILEEXT_FLV:	return HTTPFILETYPE_FLV;
 		case FILEEXT_3GP:	return HTTPFILETYPE_3GP;
+		case FILEEXT_ASF:	return HTTPFILETYPE_ASF;
 		}
 	} else if (pchExtname[4]=='\0' || pchExtname[4]=='?') {
 		//logic-and with 0xdfdfdfdf gets the uppercase of 4 chars
