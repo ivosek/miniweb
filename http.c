@@ -42,9 +42,10 @@ const char* contentTypeTable[]={
 	"video/quicktime",
 	"video/x-mpeg-avc",
 	"video/flv",
+	"video/MP2T",
+	"video/3gpp",
 	"application/octet-stream",
 	"application/x-datastream",
-	"video/MP2T",
 	"application/x-mpegURL",
 };
 
@@ -1697,6 +1698,7 @@ int mwGetContentType(const char *pchExtname)
 		case FILEEXT_MOV:	return HTTPFILETYPE_MOV;
 		case FILEEXT_264:	return HTTPFILETYPE_264;
 		case FILEEXT_FLV:	return HTTPFILETYPE_FLV;
+		case FILEEXT_3GP:	return HTTPFILETYPE_3GP;
 		}
 	} else if (pchExtname[4]=='\0' || pchExtname[4]=='?') {
 		//logic-and with 0xdfdfdfdf gets the uppercase of 4 chars
