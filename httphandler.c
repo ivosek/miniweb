@@ -208,6 +208,7 @@ int uhFileStream(UrlHandlerParam* param)
 //////////////////////////////////////////////////////////////////////////
 // stream handler sample
 //////////////////////////////////////////////////////////////////////////
+#ifndef NOTHREAD
 typedef struct {
 	int state;
 	pthread_t thread;
@@ -220,7 +221,7 @@ void* WriteContent(HANDLER_DATA* hdata)
 	int i;
 	for (i = 0; i < 10; i++, p++) {
 		*p = '0' + i;
-		Sleep(100);
+		msleep(100);
 	}
 	*p = 0;
 	return 0;
@@ -258,3 +259,4 @@ int uhAsyncDataTest(UrlHandlerParam* param)
 	param->fileType=HTTPFILETYPE_TEXT;
 	return ret;
 }
+#endif

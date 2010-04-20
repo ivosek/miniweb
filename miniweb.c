@@ -30,8 +30,9 @@ int uhAsyncDataTest(UrlHandlerParam* param);
 
 UrlHandler urlHandlerList[]={
 	{"stats", uhStats, NULL},
+#ifndef NOTHREAD
 	{"async", uhAsyncDataTest, NULL},
-	{"getfile", uhFileStream, NULL},
+#endif
 #ifdef MEDIA_SERVER
 	{"MediaServer/VideoItems/", uhMediaItemsTranscode, ehMediaItemsEvent},
 #endif
