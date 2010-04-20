@@ -275,7 +275,7 @@ int main(int argc,char* argv[])
 	
 		if (error<nInst) {
 			#ifndef NOTHREAD
-				ThreadWait(httpParam[0].tidHttpThread,NULL);
+				ThreadWait(httpParam[0].tidHttpThread, -1, NULL);
 			#endif
 		} else {
 			printf("Failed to launch miniweb\n");

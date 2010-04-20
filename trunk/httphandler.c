@@ -209,11 +209,11 @@ int uhFileStream(UrlHandlerParam* param)
 //////////////////////////////////////////////////////////////////////////
 typedef struct {
 	int state;
-	HANDLE hThread;
+	pthread_t thread;
 	char result[16];
 } HANDLER_DATA;
 
-void WriteContent(HANDLER_DATA* hdata)
+void* WriteContent(HANDLER_DATA* hdata)
 {
 	char *p = hdata->result;
 	int i;
@@ -222,6 +222,7 @@ void WriteContent(HANDLER_DATA* hdata)
 		Sleep(100);
 	}
 	*p = 0;
+	return 0;
 }
 
 int uhAsyncDataTest(UrlHandlerParam* param)
@@ -233,20 +234,19 @@ int uhAsyncDataTest(UrlHandlerParam* param)
 		if (!hdata) {
 			// first invoke
 			hdata = param->hs->ptr = calloc(1, sizeof(HANDLER_DATA));
-			hdata->hThread = CreateThread(0, 0, (LPTHREAD_START_ROUTINE)WriteContent, hdata, 0, 0);
+			ThreadCreate(&hdata->thread, WriteContent, hdata);
 			param->dataBytes = 0;
 		} else {
 			if (hdata->state == 1) {
 				// done
 				ret = 0;
-			} else if (WaitForSingleObject(hdata->hThread, 10) == WAIT_TIMEOUT) {
+			} else if (ThreadWait(hdata->thread, 10, 0)) {
 				// data not ready
 				param->dataBytes = 0;
 			} else {
 				// data ready
 				strcpy(param->pucBuffer, hdata->result);
 				param->dataBytes = strlen(param->pucBuffer);
-				CloseHandle(hdata->hThread);
 				hdata->state = 1;
 			}
 		}
