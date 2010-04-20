@@ -75,12 +75,13 @@ int ThreadKill(pthread_t pth)
 #endif
 }
 
-int ThreadWait(pthread_t pth,void** ret)
+int ThreadWait(pthread_t pth, int timeout, void** ret)
 {
 #ifndef HAVE_PTHREAD
-	if (WaitForSingleObject(pth,INFINITE)!=WAIT_OBJECT_0)
-		return GetLastError();
+	if (WaitForSingleObject(pth, timeout)==WAIT_TIMEOUT)
+		return 1;
 	if (ret) GetExitCodeThread(pth,(LPDWORD)ret);
+	CloseHandle(pth);
 	return 0;
 #else
 	return pthread_join(pth,ret);

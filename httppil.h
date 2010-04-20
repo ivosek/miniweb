@@ -94,7 +94,7 @@ void UninitSocket();
 char *GetTimeString();
 int ThreadCreate(pthread_t *pth, void* (*start_routine)(void*), void* arg);
 int ThreadKill(pthread_t pth);
-int ThreadWait(pthread_t pth,void** ret);
+int ThreadWait(pthread_t pth, int timeout, void** ret);
 void MutexCreate(pthread_mutex_t* mutex);
 void MutexDestroy(pthread_mutex_t* mutex);
 void MutexLock(pthread_mutex_t* mutex);
