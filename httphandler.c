@@ -137,6 +137,7 @@ int uh7Zip(UrlHandlerParam* param)
 
 #endif
 
+#ifdef WIN32
 void FileReadThread(UrlHandlerParam* param)
 {
 	int bytes;
@@ -202,7 +203,7 @@ int uhFileStream(UrlHandlerParam* param)
 	}
 	return FLAG_DATA_SOCKET;
 }
-
+#endif
 
 //////////////////////////////////////////////////////////////////////////
 // stream handler sample
