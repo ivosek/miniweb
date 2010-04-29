@@ -1,12 +1,12 @@
-Microsoft Visual Studio Solution File, Format Version 10.00
-# Visual Studio 2008
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "miniweb", "MiniWeb.vcproj", "{06E5025D-53D7-4B39-8D4C-D06E39A3023A}"
+Microsoft Visual Studio Solution File, Format Version 11.00
+# Visual Studio 2010
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "MiniWeb", "MiniWeb.vcxproj", "{06E5025D-53D7-4B39-8D4C-D06E39A3023A}"
 	ProjectSection(WebsiteProperties) = preProject
 		Debug.AspNetCompiler.Debug = "True"
 		Release.AspNetCompiler.Debug = "False"
 	EndProjectSection
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "7zDec", "7zDec\7zDec.vcproj", "{F0501927-6FD9-41A0-98C5-7A2D0491D47D}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "7zDec", "7zDec\7zDec.vcxproj", "{F0501927-6FD9-41A0-98C5-7A2D0491D47D}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
