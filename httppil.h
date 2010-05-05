@@ -99,9 +99,9 @@ void MutexCreate(pthread_mutex_t* mutex);
 void MutexDestroy(pthread_mutex_t* mutex);
 void MutexLock(pthread_mutex_t* mutex);
 void MutexUnlock(pthread_mutex_t* mutex);
-int ReadDir(char* pchDir, char* pchFileNameBuf);
-int IsFileExist(char* filename);
-int IsDir(char* pchName);
+int ReadDir(const char* pchDir, char* pchFileNameBuf);
+int IsFileExist(const char* filename);
+int IsDir(const char* pchName);
 
 #ifdef __cplusplus
 }

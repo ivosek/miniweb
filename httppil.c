@@ -126,7 +126,7 @@ void MutexUnlock(pthread_mutex_t* mutex)
 
 #endif
 
-int IsDir(char* pchName)
+int IsDir(const char* pchName)
 {
 #ifdef WIN32
 	DWORD attr=GetFileAttributes(pchName);
@@ -139,7 +139,7 @@ int IsDir(char* pchName)
 #endif //WIN32
 }
 
-int ReadDir(char* pchDir, char* pchFileNameBuf)
+int ReadDir(const char* pchDir, char* pchFileNameBuf)
 {
 #ifdef WIN32
 	static HANDLE hFind=NULL;
@@ -204,7 +204,7 @@ int ReadDir(char* pchDir, char* pchFileNameBuf)
 	return 0;
 }
 
-int IsFileExist(char* filename)
+int IsFileExist(const char* filename)
 {
 	struct stat s;
 	return stat(filename, &s) == 0;
