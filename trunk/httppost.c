@@ -14,7 +14,6 @@
 #include "httpapi.h"
 #include "httpint.h"
 
-#ifndef _NO_POST
 #define DEBUG printf
 
 ////////////////////////////////////////////////////////////////////////////
@@ -510,4 +509,3 @@ void _mwProcessPost(HttpParam* httpParam, HttpSocket* phsSocket)
    
   }
 } // end of _mwProcessPost
-#endif	//HTTPPOST

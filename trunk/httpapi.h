@@ -77,6 +77,7 @@ typedef enum {
   HTTPFILETYPE_OCTET,
   HTTPFILETYPE_STREAM,
   HTTPFILETYPE_M3U8,
+  HTTPFILETYPE_SDP,
 } HttpFileType;
 
 #define MAXPOSTPARAMS 50
@@ -114,15 +115,20 @@ typedef struct _tagSubstParam {
   int iMaxValueBytes;
 } SubstParam;
 
-#define FLAG_REQUEST_GET	0x1
-#define FLAG_REQUEST_POST	0x2
-#define FLAG_HEADER_SENT	0x4
-#define FLAG_CONN_CLOSE		0x10
-#define FLAG_SUBST			0x20
-#define FLAG_AUTHENTICATION	0x40
-#define FLAG_MORE_CONTENT	0x80
-#define FLAG_TO_FREE		0x100
-#define FLAG_CHUNK			0x200
+#define FLAG_REQUEST_GET		0x1
+#define FLAG_REQUEST_POST		0x2
+#define FLAG_REQUEST_OPTIONS	0x4
+#define FLAG_REQUEST_DESCRIBE	0x8
+#define FLAG_REQUEST_SETUP		0x10
+#define FLAG_REQUEST_PLAY		0x20
+#define FLAG_REQUEST_TEARDOWN	0x40
+#define FLAG_HEADER_SENT		0x80
+#define FLAG_CONN_CLOSE			0x100
+#define FLAG_SUBST				0x200
+#define FLAG_AUTHENTICATION		0x400
+#define FLAG_MORE_CONTENT		0x800
+#define FLAG_TO_FREE			0x1000
+#define FLAG_CHUNK				0x2000
 
 #define FLAG_DATA_FILE		0x10000
 #define FLAG_DATA_RAW		0x20000
@@ -130,6 +136,7 @@ typedef struct _tagSubstParam {
 #define FLAG_DATA_REDIRECT	0x80000
 #define FLAG_DATA_STREAM	0x100000
 #define FLAG_DATA_SOCKET	0x200000
+#define FLAG_CUSTOM_HEADER	0x400000
 
 #define FLAG_RECEIVING		0x80000000
 #define FLAG_SENDING		0x40000000
@@ -147,12 +154,14 @@ typedef union {
 typedef struct {
 	int iHttpVer;
 	size_t startByte;
-	unsigned char *pucPath;
-	int ofReferer;
-	int ofHost;
+	char *pucPath;
+	const char *pucReferer;
+	char* pucHost;
 	int headerSize;
-	unsigned char* pucPayload;
+	char* pucPayload;
 	int payloadSize;
+	int iCSeq;
+	const char* pucTransport;
 } HttpRequest;
 
 typedef struct {
@@ -218,16 +227,14 @@ typedef struct _HttpSocket{
 	time_t tmExpirationTime;
 	int iRequestCount;
 	char* mimeType;
-#ifndef _NO_POST
 	HttpMultipart* pxMP;
-#endif
 	unsigned char buffer[HTTP_BUFFER_SIZE];
 } HttpSocket;
 
 typedef struct {
 	void* hp;
 	HttpSocket* hs;
-	char *pucRequest;
+	const char *pucRequest;
 	HttpVariables* pxVars;
 	int iVarCount;
 	char *pucHeader;
