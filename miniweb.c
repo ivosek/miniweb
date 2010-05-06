@@ -27,12 +27,14 @@ int uhTest(UrlHandlerParam* param);
 int uh7Zip(UrlHandlerParam* param);
 int uhFileStream(UrlHandlerParam* param);
 int uhAsyncDataTest(UrlHandlerParam* param);
+int uhRTSP(UrlHandlerParam* param);
 
 UrlHandler urlHandlerList[]={
 	{"stats", uhStats, NULL},
 #ifndef NOTHREAD
 	{"async", uhAsyncDataTest, NULL},
 #endif
+	{"sdp", uhRTSP, NULL},
 #ifdef MEDIA_SERVER
 	{"MediaServer/VideoItems/", uhMediaItemsTranscode, ehMediaItemsEvent},
 #endif
@@ -177,13 +179,11 @@ int main(int argc,char* argv[])
 			httpParam[i].pxUrlHandler=urlHandlerList;
 			httpParam[i].flags=FLAG_DIR_LISTING;
 			httpParam[i].tmSocketExpireTime = 180;
-#ifndef _NO_POST
 			httpParam[i].pfnPost = DefaultWebPostCallback;
 #ifdef MEDIA_SERVER
 			httpParam[i].pfnFileUpload = TranscodeUploadCallback;
 #else
 			httpParam[i].pfnFileUpload = DefaultWebFileUploadCallback;
-#endif
 #endif
 		}
 	}

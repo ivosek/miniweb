@@ -48,6 +48,7 @@ const char* contentTypeTable[]={
 	"application/octet-stream",
 	"application/x-datastream",
 	"application/x-mpegURL",
+	"application/sdp",
 };
 
 char* defaultPages[]={"index.htm","index.html","default.htm","main.xul"};
@@ -307,9 +308,12 @@ void _mwInitSocketData(HttpSocket *phsSocket)
 {
 	memset(&phsSocket->response,0,sizeof(HttpResponse));
 	phsSocket->request.startByte = 0;
-	phsSocket->request.ofHost = 0;
+	phsSocket->request.pucHost = 0;
+	phsSocket->request.pucReferer = 0;
+	phsSocket->request.pucTransport = 0;
 	phsSocket->request.pucPath = 0;
 	phsSocket->request.headerSize = 0;
+	phsSocket->request.iCSeq = 0;
 	phsSocket->fd = 0;
 	phsSocket->flags = FLAG_RECEIVING;
 	phsSocket->pucData = phsSocket->buffer;
@@ -577,22 +581,27 @@ SOCKET _mwAcceptSocket(HttpParam* hp,struct sockaddr_in *sinaddr)
 
 int _mwBuildHttpHeader(HttpSocket *phsSocket, time_t contentDateTime, unsigned char* buffer)
 {
-	unsigned char *p=buffer;
-	p+=snprintf(p, 512, HTTP200_HEADER,
+	unsigned char *p = buffer;
+	unsigned char *end = buffer + 512;
+	p+=snprintf(p, end - p, HTTP200_HEADER,
+		(phsSocket->flags & (FLAG_REQUEST_DESCRIBE | FLAG_REQUEST_SETUP)) ? "RTSP/1.0" : "HTTP/1.1",
 		(phsSocket->request.startByte==0)?"200 OK":"206 Partial content",
 		HTTP_SERVER_NAME,
 		HTTP_KEEPALIVE_TIME,
 		MAX_CONN_REQUESTS,
 		ISFLAGSET(phsSocket,FLAG_CONN_CLOSE)?"close":"Keep-Alive");
 	if (contentDateTime) {
-		p += snprintf(p, 512, "Last-Modified: ");
+		p += snprintf(p, end - p, "Last-Modified: ");
 		p+=mwGetHttpDateTime(contentDateTime, p, 512);
 		SETWORD(p,DEFWORD('\r','\n'));
 		p+=2;
 	}
-	p+=snprintf(p, 512, "Content-Type: %s\r\n", phsSocket->mimeType ? phsSocket->mimeType : contentTypeTable[phsSocket->response.fileType]);
+	if (phsSocket->request.iCSeq) {
+		p += snprintf(p, end - p, "CSeq: %d\r\n", phsSocket->request.iCSeq);
+	}
+	p+=snprintf(p, end - p, "Content-Type: %s\r\n", phsSocket->mimeType ? phsSocket->mimeType : contentTypeTable[phsSocket->response.fileType]);
 	if (phsSocket->response.contentLength > 0 && !(phsSocket->flags & FLAG_CHUNK)) {
-		p+=snprintf(p, 512,"Content-Length: %d\r\n", phsSocket->response.contentLength);
+		p+=snprintf(p, end - p,"Content-Length: %d\r\n", phsSocket->response.contentLength);
 	}
 	if (phsSocket->flags & FLAG_CHUNK) {
 		p += sprintf(p, "Transfer-Encoding: chunked\r\n");
@@ -740,18 +749,23 @@ int _mwCheckUrlHandlers(HttpParam* hp, HttpSocket* phsSocket)
 	UrlHandler* puh;
 	UrlHandlerParam up;
 	int ret=0;
-
 	up.pxVars=NULL;
 	for (puh=hp->pxUrlHandler; puh && puh->pchUrlPrefix; puh++) {
 		size_t prefixLen=strlen(puh->pchUrlPrefix);
-		if (puh->pfnUrlHandler && !strncmp(phsSocket->request.pucPath,puh->pchUrlPrefix,prefixLen)) {
+		char* path = phsSocket->request.pucPath;
+		char* p = strstr(path, "://");
+		if (p && !strstr(puh->pchUrlPrefix, "://")) {
+			p = strchr(p + 3, '/');
+			if (p) path = p + 1;
+		}
+		if (puh->pfnUrlHandler && !strncmp(path,puh->pchUrlPrefix,prefixLen)) {
 			//URL prefix matches
 			memset(&up, 0, sizeof(up));
 			up.hp=hp;
 			up.p_sys = puh->p_sys;
 			up.hs = phsSocket;
 			up.dataBytes=phsSocket->bufferSize;
-			up.pucRequest=phsSocket->request.pucPath+prefixLen;
+			up.pucRequest=path+prefixLen;
 			up.pucHeader=phsSocket->buffer;
 			up.pucBuffer=phsSocket->pucData;
 			up.pucBuffer[0]=0;
@@ -809,7 +823,6 @@ int _mwCheckUrlHandlers(HttpParam* hp, HttpSocket* phsSocket)
 ////////////////////////////////////////////////////////////////////////////
 int _mwProcessReadSocket(HttpParam* hp, HttpSocket* phsSocket)
 {
-#ifndef _NO_POST
     if (ISFLAGSET(phsSocket,FLAG_REQUEST_POST)) {
 		if (phsSocket->pxMP && phsSocket->pxMP->pchBoundaryValue[0]) {
 			// multipart and has valid boundary string
@@ -822,7 +835,6 @@ int _mwProcessReadSocket(HttpParam* hp, HttpSocket* phsSocket)
 			goto done;
 		}
     }
-#endif
 
 	// read next chunk of data
 	{
@@ -860,15 +872,34 @@ int _mwProcessReadSocket(HttpParam* hp, HttpSocket* phsSocket)
 			if (++i > phsSocket->dataLength - 3) return 0;
 		}
 		// reach the end of the header
+		phsSocket->request.headerSize = i + 4;
+		DBG("[%d] header size: %d bytes\n",phsSocket->socket,phsSocket->request.headerSize);
+		// add header zero terminator
+		phsSocket->buffer[phsSocket->request.headerSize]=0;
+		DBG("%s",phsSocket->buffer);
+
 		//check request type
 		if (!memcmp(phsSocket->buffer, "GET", 3)) {
 			SETFLAG(phsSocket,FLAG_REQUEST_GET);
 			path = phsSocket->pucData + 5;
-#ifndef _NO_POST
 		} else if (!memcmp(phsSocket->buffer, "POST", 4)) {
 			SETFLAG(phsSocket,FLAG_REQUEST_POST);
 			path = phsSocket->pucData + 6;
-#endif
+		} else if (!memcmp(phsSocket->buffer, "OPTIONS", 7)) {
+			SETFLAG(phsSocket,FLAG_REQUEST_OPTIONS);
+			path = phsSocket->pucData + 8;
+		} else if (!memcmp(phsSocket->buffer, "DESCRIBE", 8)) {
+			SETFLAG(phsSocket,FLAG_REQUEST_DESCRIBE);
+			path = phsSocket->pucData + 9;
+		} else if (!memcmp(phsSocket->buffer, "SETUP", 5)) {
+			SETFLAG(phsSocket,FLAG_REQUEST_SETUP);
+			path = phsSocket->pucData + 6;
+		} else if (!memcmp(phsSocket->buffer, "PLAY", 4)) {
+			SETFLAG(phsSocket,FLAG_REQUEST_PLAY);
+			path = phsSocket->pucData + 5;
+		} else if (!memcmp(phsSocket->buffer, "TEARDOWN", 8)) {
+			SETFLAG(phsSocket,FLAG_REQUEST_TEARDOWN);
+			path = phsSocket->pucData + 9;
 		} else {
 			SYSLOG(LOG_INFO,"[%d] Unsupported method\n",phsSocket->socket);		
 			SETFLAG(phsSocket,FLAG_CONN_CLOSE);
@@ -876,27 +907,19 @@ int _mwProcessReadSocket(HttpParam* hp, HttpSocket* phsSocket)
 			return -1;
 		}
 
-		phsSocket->request.headerSize = i + 4;
-		DBG("[%d] header size: %d bytes\n",phsSocket->socket,phsSocket->request.headerSize);
 		if (_mwParseHttpHeader(phsSocket)) {
 			SYSLOG(LOG_INFO,"Error parsing request\n");
 			SETFLAG(phsSocket, FLAG_CONN_CLOSE);
 			return -1;
 		} else {
-			// keep request path
-			for (i = 0; i < MAX_REQUEST_PATH_LEN; i++) {
-				if ((path[i] == ' ' && !strncmp(path + i + 1, "HTTP/", 5)) || path[i] == '\r') {
-					break;
-				}
-			}
-			if (i >= MAX_REQUEST_PATH_LEN) {
-				SETFLAG(phsSocket, FLAG_CONN_CLOSE);
-				return -1;
-			}
+			// rip out request path
+			int i;
+			char *p = strstr(path, " HTTP/");
+			if (!p) p = strstr(path, " RTSP/");
+			i = (int)(p - path);
 			phsSocket->request.pucPath = malloc(i + 1);
 			memcpy(phsSocket->request.pucPath, path, i);
 			phsSocket->request.pucPath[i] = 0;
-#ifndef _NO_POST
 			if (ISFLAGSET(phsSocket,FLAG_REQUEST_POST)) {
 				hp->stats.reqPostCount++;
 				if (phsSocket->pxMP) {
@@ -942,11 +965,7 @@ int _mwProcessReadSocket(HttpParam* hp, HttpSocket* phsSocket)
 					phsSocket->pucData = phsSocket->request.pucPayload;
 				}
 			}
-#endif
 		}
-		// add header zero terminator
-		phsSocket->buffer[phsSocket->request.headerSize]=0;
-		DBG("%s",phsSocket->buffer);
 	}
     if (ISFLAGSET(phsSocket,FLAG_REQUEST_POST) && phsSocket->pxMP) {
 		if (!phsSocket->pxMP->pchBoundaryValue[0]) {
@@ -972,30 +991,28 @@ done:
 		phsSocket->bufferSize = HTTP_BUFFER_SIZE;
 	}
 
-	SYSLOG(LOG_INFO,"[%d] request path: /%s\n",phsSocket->socket,phsSocket->request.pucPath);
+	SYSLOG(LOG_INFO,"[%d] request path: %s\n",phsSocket->socket,phsSocket->request.pucPath);
 	hp->stats.reqCount++;
-	if (ISFLAGSET(phsSocket,FLAG_REQUEST_GET|FLAG_REQUEST_POST)) {
-		if (hp->pxUrlHandler) {
-			if (!_mwCheckUrlHandlers(hp,phsSocket))
-				SETFLAG(phsSocket,FLAG_DATA_FILE);
-		}
-		// set state to SENDING (actual sending will occur on next select)
-		CLRFLAG(phsSocket,FLAG_RECEIVING)
-		SETFLAG(phsSocket,FLAG_SENDING);
-		hp->stats.reqGetCount++;
-		if (phsSocket->request.iHttpVer == 0) {
-			CLRFLAG(phsSocket, FLAG_CHUNK);
-		}
-		if (ISFLAGSET(phsSocket,FLAG_DATA_RAW | FLAG_DATA_STREAM)) {
-			return _mwStartSendRawData(hp, phsSocket);
-		} else if (ISFLAGSET(phsSocket,FLAG_DATA_FILE)) {
-			// send requested page
-			return _mwStartSendFile(hp,phsSocket);
-		} else if (ISFLAGSET(phsSocket,FLAG_DATA_SOCKET | FLAG_DATA_REDIRECT)) {
-			return 0;
-		}
+	if (hp->pxUrlHandler) {
+		if (!_mwCheckUrlHandlers(hp,phsSocket))
+			SETFLAG(phsSocket,FLAG_DATA_FILE);
 	}
-	SYSLOG(LOG_INFO,"Error occurred (might be a bug)\n");
+	// set state to SENDING (actual sending will occur on next select)
+	CLRFLAG(phsSocket,FLAG_RECEIVING)
+	SETFLAG(phsSocket,FLAG_SENDING);
+	hp->stats.reqGetCount++;
+	if (phsSocket->request.iHttpVer == 0) {
+		CLRFLAG(phsSocket, FLAG_CHUNK);
+	}
+	if (ISFLAGSET(phsSocket,FLAG_DATA_RAW | FLAG_DATA_STREAM)) {
+		return _mwStartSendRawData(hp, phsSocket);
+	} else if (ISFLAGSET(phsSocket,FLAG_DATA_FILE)) {
+		// send requested page
+		return _mwStartSendFile(hp,phsSocket);
+	} else if (ISFLAGSET(phsSocket,FLAG_DATA_SOCKET | FLAG_DATA_REDIRECT)) {
+		return 0;
+	}
+	SYSLOG(LOG_INFO,"Unexpected error occurred\n");
 	return -1;
 } // end of _mwProcessReadSocket
 
@@ -1035,7 +1052,6 @@ void _mwCloseSocket(HttpParam* hp, HttpSocket* phsSocket)
 		close(phsSocket->fd);
 	}
 	phsSocket->fd = 0;
-#ifndef _NO_POST
 	if (phsSocket->pxMP) {
 		int i;
 		HttpMultipart *pxMP = phsSocket->pxMP;
@@ -1053,7 +1069,6 @@ void _mwCloseSocket(HttpParam* hp, HttpSocket* phsSocket)
 		free(phsSocket->request.pucPayload);
 		phsSocket->request.pucPayload = 0;
 	}
-#endif
 	if (ISFLAGSET(phsSocket,FLAG_DATA_STREAM) && phsSocket->handler) {
 		UrlHandlerParam up;
 		UrlHandler* pfnHandler = (UrlHandler*)phsSocket->handler;
@@ -1101,13 +1116,15 @@ int _mwStrCopy(char *dest, const char *src)
 	return i;
 }
 
-int _mwStrHeadMatch(const char* buf1, const char* buf2) {
+int _mwStrHeadMatch(char** pbuf1, const char* buf2) {
 	unsigned int i;
+	char* buf1 = *pbuf1;
 	int x;
 	for(i=0;buf2[i];i++) {
-		if ((x=tolower(buf1[i])-tolower(buf2[i]))) return x;
+		if ((x=tolower(buf1[i])-tolower(buf2[i]))) return 0;
 	}
-	return 0;
+	*pbuf1 = buf1 + i;
+	return i;
 }
 
 int _mwListDirectory(HttpSocket* phsSocket, char* dir)
@@ -1413,19 +1430,23 @@ int _mwSendFileChunk(HttpParam *hp, HttpSocket* phsSocket)
 ////////////////////////////////////////////////////////////////////////////
 int _mwStartSendRawData(HttpParam *hp, HttpSocket* phsSocket)
 {
-	unsigned char header[HTTP200_HDR_EST_SIZE];
-	int offset=0,hdrsize,bytes;
-	hdrsize=_mwBuildHttpHeader(phsSocket,time(NULL),header);
-	// send http header
-	do {
-		bytes=send(phsSocket->socket, header+offset,hdrsize-offset,0);
-		if (bytes<=0) break;
-		offset+=bytes;
-	} while (offset<hdrsize);
-	if (bytes<=0) {
-		// failed to send header (socket may have been closed by peer)
-		SYSLOG(LOG_INFO,"Failed to send header\n");
-		return -1;
+	if (ISFLAGSET(phsSocket, FLAG_CUSTOM_HEADER)) {
+		return _mwSendRawDataChunk(hp, phsSocket);
+	} else {
+		unsigned char header[HTTP200_HDR_EST_SIZE];
+		int offset=0,hdrsize,bytes;
+		hdrsize=_mwBuildHttpHeader(phsSocket,time(NULL),header);
+		// send http header
+		do {
+			bytes=send(phsSocket->socket, header+offset,hdrsize-offset,0);
+			if (bytes<=0) break;
+			offset+=bytes;
+		} while (offset<hdrsize);
+		if (bytes<=0) {
+			// failed to send header (socket may have been closed by peer)
+			SYSLOG(LOG_INFO,"Failed to send header\n");
+			return -1;
+		}
 	}
 	return 0;
 }
@@ -1701,6 +1722,7 @@ int mwGetContentType(const char *pchExtname)
 		case FILEEXT_FLV:	return HTTPFILETYPE_FLV;
 		case FILEEXT_3GP:	return HTTPFILETYPE_3GP;
 		case FILEEXT_ASF:	return HTTPFILETYPE_ASF;
+		case FILEEXT_SDP:	return HTTPFILETYPE_SDP;
 		}
 	} else if (pchExtname[4]=='\0' || pchExtname[4]=='?') {
 		//logic-and with 0xdfdfdfdf gets the uppercase of 4 chars
@@ -1734,7 +1756,11 @@ int _mwParseHttpHeader(HttpSocket* phsSocket)
 	HttpRequest *req=&phsSocket->request;
 
 	p = strstr(phsSocket->buffer, "HTTP/1.");
-	if (!p) return -1;
+	do {
+		if (p) continue;
+		p = strstr(phsSocket->buffer, "RTSP/1.");
+		if (!p) return -1;
+	} while(0);
 	p += 7;
 	req->iHttpVer = (*p - '0');
 	//analyze rest of the header
@@ -1746,24 +1772,18 @@ int _mwParseHttpHeader(HttpSocket* phsSocket)
 		p+=2;							//skip "\r\n"
 		switch (*(p++)) {
 		case 'C':
-			if (!_mwStrHeadMatch(p,"onnection: ")) {
-				p+=11;
-				if (!_mwStrHeadMatch(p,"close")) {
+			if (_mwStrHeadMatch(&p,"onnection: ")) {
+				if (_mwStrHeadMatch(&p,"close")) {
 					SETFLAG(phsSocket,FLAG_CONN_CLOSE);
-					p+=5;
-				} else if (!_mwStrHeadMatch(p,"Keep-Alive")) {
+				} else if (_mwStrHeadMatch(&p,"Keep-Alive")) {
 					CLRFLAG(phsSocket,FLAG_CONN_CLOSE);
-					p+=10;
 				}
-			} else if (!_mwStrHeadMatch(p, "ontent-Length: ")) {
-				p+=15;
+			} else if (_mwStrHeadMatch(&p, "ontent-Length: ")) {
 				p+=_mwGrabToken(p,'\r',buf,sizeof(buf));
 				phsSocket->response.contentLength=atoi(buf);
-			} else if (!_mwStrHeadMatch(p, "ontent-Type: ")) {
-				p += 13;
-				if (!_mwStrHeadMatch(p, "multipart/form-data; boundary=")) {
+			} else if (_mwStrHeadMatch(&p, "ontent-Type: ")) {
+				if (_mwStrHeadMatch(&p, "multipart/form-data; boundary=")) {
 					// request is a multipart POST
-					p += 30;
 					buf[0] = '-';
 					buf[1] = '-';
 					p += _mwGrabToken(p ,'\r', buf + 2, sizeof(buf) - 2);
@@ -1771,8 +1791,7 @@ int _mwParseHttpHeader(HttpSocket* phsSocket)
 					strcpy(phsSocket->pxMP->pchBoundaryValue, buf);
 				} else {
 					for (; *p != '\r'; p++) {
-						if (!_mwStrHeadMatch(p, "; filename=")) {
-							p += 11;
+						if (_mwStrHeadMatch(&p, "; filename=")) {
 							p += _mwGrabToken(p ,'\r', buf, sizeof(buf));
 							phsSocket->pxMP = calloc(1, sizeof(HttpMultipart));
 							phsSocket->pxMP->pchFilename = strdup(buf);
@@ -1780,15 +1799,15 @@ int _mwParseHttpHeader(HttpSocket* phsSocket)
 						}
 					}
 				}
+			} else if (_mwStrHeadMatch(&p, "Seq: ")) {
+				phsSocket->request.iCSeq = atoi(p);
 			}
 			break;
 		case 'R':
-			if (!_mwStrHeadMatch(p,"eferer: ")) {
-				p+=8;
-				phsSocket->request.ofReferer=(int)(p - (char*)phsSocket->buffer);
-			} else if (!_mwStrHeadMatch(p,"ange: bytes=")) {
+			if (_mwStrHeadMatch(&p,"eferer: ")) {
+				phsSocket->request.pucReferer= p;
+			} else if (_mwStrHeadMatch(&p,"ange: bytes=")) {
 				int iEndByte;
-				p+=12;
 				iLen=_mwGrabToken(p,'-',buf,sizeof(buf));
 				if (iLen==0) continue;
 				p+=iLen;
@@ -1802,9 +1821,13 @@ int _mwParseHttpHeader(HttpSocket* phsSocket)
 			}
 			break;
 		case 'H':
-			if (!_mwStrHeadMatch(p,"ost: ")) {
-				p+=5;
-				phsSocket->request.ofHost=(int)(p - (char*)phsSocket->buffer);
+			if (_mwStrHeadMatch(&p,"ost: ")) {
+				phsSocket->request.pucHost = p;
+			}
+			break;
+		case 'T':
+			if (_mwStrHeadMatch(&p,"ransport: ")) {
+				phsSocket->request.pucTransport = p;
 			}
 			break;
 		}
