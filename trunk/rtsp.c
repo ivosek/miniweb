@@ -29,6 +29,7 @@ int uhRTSP(UrlHandlerParam* param)
 		"RTSP/1.0 200 OK\r\nCseq: %d\r\nPublic: DESCRIBE, SETUP, TEARDOWN, PLAY\r\n\r\n",
 		param->hs->request.iCSeq
 		);
+		SYSLOG(LOG_INFO, "OPTIONS command answered\n");
 	} else if (param->hs->flags & (FLAG_REQUEST_DESCRIBE | FLAG_REQUEST_GET)) {
 		// DESCRIBE
 		// also allowed for HTTP request
@@ -55,7 +56,6 @@ int uhRTSP(UrlHandlerParam* param)
 			param->hs->ipAddr.caddr[0],
 			param->hs->request.pucPath,param->hs->request.pucPath
 		);
-		SYSLOG(LOG_INFO, "SDP:\n%s", sdp);
 		param->dataBytes = _snprintf(param->pucBuffer, param->dataBytes,
 			"%s/1.0 200 OK\r\n"
 			"CSeq: %d\r\n"
@@ -63,6 +63,7 @@ int uhRTSP(UrlHandlerParam* param)
 			"Content-Length: %d\r\n\r\n%s",
 			param->hs->flags & FLAG_REQUEST_DESCRIBE ? "RTSP" : "HTTP",
 			param->hs->request.iCSeq, sdplen, sdp);
+		SYSLOG(LOG_INFO, "DESCRIBE command answered\n");
 	} else if (param->hs->flags & FLAG_REQUEST_SETUP) {
 		// SETUP
 		int port;
@@ -79,7 +80,7 @@ int uhRTSP(UrlHandlerParam* param)
             "Transport: RTP/AVP;unicast;client_port=%d-%d;server_port=0\r\n"
             "Session: 12345678\r\n\r\n",
 			param->hs->request.iCSeq, port, port + 1);
-		return FLAG_DATA_RAW | FLAG_CUSTOM_HEADER;
+		SYSLOG(LOG_INFO, "SETUP command answered\n");
 	} else if (param->hs->flags & FLAG_REQUEST_PLAY) {
 		// PLAY
 		param->dataBytes = _snprintf(param->pucBuffer, param->dataBytes,
@@ -88,15 +89,18 @@ int uhRTSP(UrlHandlerParam* param)
 			"Session: 12345678\r\n"
 			"RTP-Info: url=%s/video\r\n\r\n",
 			param->hs->request.iCSeq, param->hs->request.pucPath);
+		SYSLOG(LOG_INFO, "PLAY command answered\n");
 	} else if (param->hs->flags & FLAG_REQUEST_TEARDOWN) {
 		// TEARDOWN
 		param->dataBytes = _snprintf(param->pucBuffer, param->dataBytes,
 			"RTSP/1.0 200 OK\r\n"
 			"CSeq: %d\r\n\r\n",
 			param->hs->request.iCSeq);
+		SYSLOG(LOG_INFO, "TEARDOWN command answered\n");
 	} else {
 		DBG("Unhanded RTSP request\r\n%s\r\n", param->pucHeader);
 		return 0;
 	}
+	DBG(param->pucBuffer);
 	return FLAG_DATA_RAW | FLAG_CUSTOM_HEADER;
 }
