@@ -749,15 +749,16 @@ int _mwCheckUrlHandlers(HttpParam* hp, HttpSocket* phsSocket)
 	UrlHandler* puh;
 	UrlHandlerParam up;
 	int ret=0;
+	char* path = phsSocket->request.pucPath;
+	char* p = strstr(path, "://");
+	if (p) {
+		// remove protocol and host name from URL
+		p = strchr(p + 3, '/');
+		if (p) path = p + 1;
+	}
 	up.pxVars=NULL;
 	for (puh=hp->pxUrlHandler; puh && puh->pchUrlPrefix; puh++) {
 		size_t prefixLen=strlen(puh->pchUrlPrefix);
-		char* path = phsSocket->request.pucPath;
-		char* p = strstr(path, "://");
-		if (p && !strstr(puh->pchUrlPrefix, "://")) {
-			p = strchr(p + 3, '/');
-			if (p) path = p + 1;
-		}
 		if (puh->pfnUrlHandler && !strncmp(path,puh->pchUrlPrefix,prefixLen)) {
 			//URL prefix matches
 			memset(&up, 0, sizeof(up));
