@@ -873,12 +873,6 @@ int _mwProcessReadSocket(HttpParam* hp, HttpSocket* phsSocket)
 			if (++i > phsSocket->dataLength - 3) return 0;
 		}
 		// reach the end of the header
-		phsSocket->request.headerSize = i + 4;
-		DBG("[%d] header size: %d bytes\n",phsSocket->socket,phsSocket->request.headerSize);
-		// add header zero terminator
-		phsSocket->buffer[phsSocket->request.headerSize]=0;
-		DBG("%s",phsSocket->buffer);
-
 		//check request type
 		if (!memcmp(phsSocket->buffer, "GET", 3)) {
 			SETFLAG(phsSocket,FLAG_REQUEST_GET);
@@ -907,6 +901,15 @@ int _mwProcessReadSocket(HttpParam* hp, HttpSocket* phsSocket)
 			phsSocket->request.pucPath = 0;
 			return -1;
 		}
+
+		phsSocket->request.headerSize = i + 4;
+		DBG("[%d] header size: %d bytes\n",phsSocket->socket,phsSocket->request.headerSize);
+		
+		if (ISFLAGSET(phsSocket, FLAG_REQUEST_POST) == 0) {
+			// add header zero terminator
+			phsSocket->buffer[phsSocket->request.headerSize]=0;
+		}
+		DBG("%s",phsSocket->buffer);
 
 		if (_mwParseHttpHeader(phsSocket)) {
 			SYSLOG(LOG_INFO,"Error parsing request\n");
