@@ -918,8 +918,13 @@ int _mwProcessReadSocket(HttpParam* hp, HttpSocket* phsSocket)
 		} else {
 			// rip out request path
 			int i;
-			char *p = strstr(path, " HTTP/");
+			char *p = strstr(path, "HTTP/");
 			if (!p) p = strstr(path, " RTSP/");
+			if (!p) {
+				SYSLOG(LOG_INFO,"Error parsing request path\n");
+				SETFLAG(phsSocket, FLAG_CONN_CLOSE);
+				return -1;
+			}
 			i = (int)(p - path);
 			phsSocket->request.pucPath = malloc(i + 1);
 			memcpy(phsSocket->request.pucPath, path, i);
