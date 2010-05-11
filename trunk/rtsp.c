@@ -56,6 +56,11 @@ int uhRTSP(UrlHandlerParam* param)
 			param->hs->ipAddr.caddr[0],
 			param->hs->request.pucPath,param->hs->request.pucPath
 		);
+		if (param->hs->flags & FLAG_REQUEST_GET) {
+			param->dataBytes = _snprintf(param->pucBuffer, param->dataBytes, "%s", sdp);
+			param->fileType = HTTPFILETYPE_SDP;
+			return FLAG_DATA_RAW;
+		}
 		param->dataBytes = _snprintf(param->pucBuffer, param->dataBytes,
 			"%s/1.0 200 OK\r\n"
 			"CSeq: %d\r\n"
