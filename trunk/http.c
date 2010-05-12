@@ -904,31 +904,26 @@ int _mwProcessReadSocket(HttpParam* hp, HttpSocket* phsSocket)
 
 		phsSocket->request.headerSize = i + 4;
 		DBG("[%d] header size: %d bytes\n",phsSocket->socket,phsSocket->request.headerSize);
-		
-		if (ISFLAGSET(phsSocket, FLAG_REQUEST_POST) == 0) {
-			// add header zero terminator
-			phsSocket->buffer[phsSocket->request.headerSize]=0;
-		}
-		DBG("%s",phsSocket->buffer);
-
 		if (_mwParseHttpHeader(phsSocket)) {
 			SYSLOG(LOG_INFO,"Error parsing request\n");
 			SETFLAG(phsSocket, FLAG_CONN_CLOSE);
 			return -1;
 		} else {
-			// rip out request path
-			int i;
-			char *p = strstr(path, "HTTP/");
-			if (!p) p = strstr(path, " RTSP/");
-			if (!p) {
-				SYSLOG(LOG_INFO,"Error parsing request path\n");
+			// keep request path
+			for (i = 0; i < MAX_REQUEST_PATH_LEN; i++) {
+				if ((path[i] == ' ' && (!strncmp(path + i + 1, "HTTP/", 5) || !strncmp(path + i + 1, "RTSP/", 5)))
+					|| path[i] == '\r') {
+					break;
+				}
+			}
+			if (i >= MAX_REQUEST_PATH_LEN) {
 				SETFLAG(phsSocket, FLAG_CONN_CLOSE);
 				return -1;
 			}
-			i = (int)(p - path);
 			phsSocket->request.pucPath = malloc(i + 1);
 			memcpy(phsSocket->request.pucPath, path, i);
 			phsSocket->request.pucPath[i] = 0;
+#ifndef _NO_POST
 			if (ISFLAGSET(phsSocket,FLAG_REQUEST_POST)) {
 				hp->stats.reqPostCount++;
 				if (phsSocket->pxMP) {
@@ -974,7 +969,11 @@ int _mwProcessReadSocket(HttpParam* hp, HttpSocket* phsSocket)
 					phsSocket->pucData = phsSocket->request.pucPayload;
 				}
 			}
+#endif
 		}
+		// add header zero terminator
+		phsSocket->buffer[phsSocket->request.headerSize]=0;
+		DBG("%s",phsSocket->buffer);
 	}
     if (ISFLAGSET(phsSocket,FLAG_REQUEST_POST) && phsSocket->pxMP) {
 		if (!phsSocket->pxMP->pchBoundaryValue[0]) {
