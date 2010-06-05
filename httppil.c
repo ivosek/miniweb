@@ -206,6 +206,8 @@ int ReadDir(const char* pchDir, char* pchFileNameBuf)
 
 int IsFileExist(const char* filename)
 {
-	struct stat s;
-	return stat(filename, &s) == 0;
+	struct stat stat_ret;
+	if (stat(filename, &stat_ret) != 0) return 0;
+
+	return (stat_ret.st_mode & S_IFREG) != 0;
 }
