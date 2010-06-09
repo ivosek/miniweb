@@ -794,7 +794,7 @@ int _mwCheckUrlHandlers(HttpParam* hp, HttpSocket* phsSocket)
 					SETFLAG(phsSocket, FLAG_DATA_STREAM);
 					phsSocket->pucData = up.pucBuffer;
 					phsSocket->dataLength = up.dataBytes;
-					phsSocket->response.contentLength = up.dataBytes;
+					phsSocket->response.contentLength = 0;
 					DBG("URL handler: stream\n");
 				} else if (ret & FLAG_DATA_FILE) {
 					SETFLAG(phsSocket, FLAG_DATA_FILE);
@@ -1494,7 +1494,7 @@ int _mwSendRawDataChunk(HttpParam *hp, HttpSocket* phsSocket)
 			UrlHandler* pfnHandler = (UrlHandler*)phsSocket->handler;
 			up.hs = phsSocket;
 			up.hp = hp;
-			up.pucBuffer=phsSocket->pucData;
+			up.pucBuffer=phsSocket->buffer;
 			up.dataBytes=HTTP_BUFFER_SIZE;
 			if ((pfnHandler->pfnUrlHandler)(&up) == 0) {
 				if (phsSocket->flags & FLAG_CHUNK) {
