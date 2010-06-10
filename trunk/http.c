@@ -750,10 +750,10 @@ int _mwCheckUrlHandlers(HttpParam* hp, HttpSocket* phsSocket)
 	UrlHandlerParam up;
 	int ret=0;
 	char* path = phsSocket->request.pucPath;
-	char* p = strstr(path, "://");
+	char* p = strstr(path, "rtsp://");
 	if (p) {
-		// remove protocol and host name from URL
-		p = strchr(p + 3, '/');
+		// remove RTSP protocol and host name from URL
+		p = strchr(p + 7, '/');
 		if (p) path = p + 1;
 	}
 	up.pxVars=NULL;
@@ -1369,35 +1369,36 @@ int _mwSendFileChunk(HttpParam *hp, HttpSocket* phsSocket)
 	int iBytesWritten;
 	int iBytesRead;
 
-	if ((phsSocket->flags & FLAG_CHUNK) && ISFLAGSET(phsSocket, FLAG_HEADER_SENT)) {
-		char buf[16];
-		iBytesRead = snprintf(buf, sizeof(buf), "%X\r\n", phsSocket->dataLength);
-		iBytesWritten = send(phsSocket->socket, buf, iBytesRead, 0);
+	if (phsSocket->dataLength > 0) {
+		if ((phsSocket->flags & FLAG_CHUNK) && ISFLAGSET(phsSocket, FLAG_HEADER_SENT)) {
+			char buf[16];
+			iBytesRead = snprintf(buf, sizeof(buf), "%X\r\n", phsSocket->dataLength);
+			iBytesWritten = send(phsSocket->socket, buf, iBytesRead, 0);
+		}
+		// send a chunk of data
+		iBytesWritten=send(phsSocket->socket, phsSocket->pucData,(int)phsSocket->dataLength, 0);
+		if (iBytesWritten<=0) {
+			// close connection
+			DBG("[%d] error sending data\n", phsSocket->socket);
+			SETFLAG(phsSocket,FLAG_CONN_CLOSE);
+			close(phsSocket->fd);
+			phsSocket->fd = 0;
+			return -1;
+		}
+		SETFLAG(phsSocket, FLAG_HEADER_SENT);
+		phsSocket->response.sentBytes+=iBytesWritten;
+		phsSocket->pucData+=iBytesWritten;
+		phsSocket->dataLength-=iBytesWritten;
+		SYSLOG(LOG_INFO,"[%d] %d bytes sent\n",phsSocket->socket,phsSocket->response.sentBytes);
+		// if only partial data sent just return wait the remaining data to be sent next time
+		if (phsSocket->dataLength>0) return 0;
 	}
-	// send a chunk of data
-	iBytesWritten=send(phsSocket->socket, phsSocket->pucData,(int)phsSocket->dataLength, 0);
-	if (iBytesWritten<=0) {
-		// close connection
-		DBG("[%d] error sending data\n", phsSocket->socket);
-		SETFLAG(phsSocket,FLAG_CONN_CLOSE);
-		close(phsSocket->fd);
-		phsSocket->fd = 0;
-		return -1;
-	}
-	SETFLAG(phsSocket, FLAG_HEADER_SENT);
-	phsSocket->response.sentBytes+=iBytesWritten;
-	phsSocket->pucData+=iBytesWritten;
-	phsSocket->dataLength-=iBytesWritten;
-	SYSLOG(LOG_INFO,"[%d] %d bytes sent\n",phsSocket->socket,phsSocket->response.sentBytes);
-	// if only partial data sent just return wait the remaining data to be sent next time
-	if (phsSocket->dataLength>0)	return 0;
 
 	// used all buffered data - load next chunk of file
 	phsSocket->pucData=phsSocket->buffer;
-	if (phsSocket->fd > 0)
-		iBytesRead=read(phsSocket->fd,phsSocket->buffer,HTTP_BUFFER_SIZE);
-	else
-		iBytesRead=0;
+	iBytesRead=read(phsSocket->fd,phsSocket->buffer,HTTP_BUFFER_SIZE);
+	if (iBytesRead == -1 && errno == 8)
+		return 0; // try reading again next time
 	if (iBytesRead<=0) {
 		// finished with a file
 		int remainBytes = phsSocket->response.contentLength + phsSocket->response.headerBytes - phsSocket->response.sentBytes;
