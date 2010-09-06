@@ -53,6 +53,13 @@ UrlHandler urlHandlerList[]={
 	{NULL},
 };
 
+#ifndef DISABLE_BASIC_WWWAUTH
+AuthHandler authHandlerList[]={
+	{"stats", "user", "pass", NULL},
+	{NULL}
+};
+#endif
+
 HttpParam *httpParam;
 int nInst=0;
 
@@ -163,7 +170,7 @@ int main(int argc,char* argv[])
 	//initialize HTTP parameter structure
 	{
 		int iParamBytes=nInst*sizeof(HttpParam);
-		httpParam=malloc(iParamBytes);
+		httpParam=(HttpParam*)malloc(iParamBytes);
 		if (!httpParam) {
 			printf("Out of memory\n");
 			return -1;
@@ -176,6 +183,9 @@ int main(int argc,char* argv[])
 		for (i=0;i<nInst;i++) {
 			httpParam[i].maxClients=32;
 			httpParam[i].pchWebPath="webroot";
+#ifndef DISABLE_BASIC_WWWAUTH
+			httpParam[i].pxAuthHandler = authHandlerList;
+#endif
 			httpParam[i].pxUrlHandler=urlHandlerList;
 			httpParam[i].flags=FLAG_DIR_LISTING;
 			httpParam[i].tmSocketExpireTime = 180;
