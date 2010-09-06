@@ -162,6 +162,9 @@ typedef struct {
 	int payloadSize;
 	int iCSeq;
 	const char* pucTransport;
+#ifndef DISABLE_BASIC_WWWAUTH
+	const char* pucAuthString;
+#endif
 } HttpRequest;
 
 typedef struct {

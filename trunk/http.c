@@ -705,12 +705,16 @@ void _mwBase64Encode(const char *in_str, int in_len, char *out_str)
 	out_str[curr_out_len] = '\0';
 }
 
+////////////////////////////////////////////////////////////////////////////
+// _mwGetBaisAuthorization
+// RETURN VALUE: Authorization string, need to free by caller
+////////////////////////////////////////////////////////////////////////////
 char *_mwGetBaisAuthorization(const char* username, const char* password)
 {
-	const char prefix[] = "Authorization: Basic ";
+	const char prefix[] = "Basic ";
 	int len = strlen(username) + 1 + strlen(password);
-	char *tmp = malloc(len + 1);
-	char *out = malloc(sizeof(prefix) + (len * 4 / 3 + 1) + 2);
+	char *tmp = (char*)malloc(len + 1);
+	char *out = (char*)malloc(sizeof(prefix) + (len * 4 / 3 + 1) + 2);
 	char *p = out + sizeof(prefix) - 1;
 
 	sprintf(tmp, "%s:%s", username, password);
@@ -725,25 +729,58 @@ char *_mwGetBaisAuthorization(const char* username, const char* password)
 }
 
 ////////////////////////////////////////////////////////////////////////////
+// _mwSend401AuthorizationRequired
+////////////////////////////////////////////////////////////////////////////
+void _mwSend401AuthorizationRequired(HttpSocket* phsSocket)
+{
+	char hdr[128];
+	int hdrsize = snprintf(hdr, sizeof(hdr), HTTP401_HEADER, "Login", sizeof(HTTP401_BODY) - 1);
+
+	SYSLOG(LOG_INFO,"[%d] Authorization Required\n",phsSocket->socket);
+	// send Authorization Required
+	send(phsSocket->socket, hdr, hdrsize, 0);
+	send(phsSocket->socket, HTTP401_BODY, sizeof(HTTP401_BODY)-1, 0);
+}
+
+////////////////////////////////////////////////////////////////////////////
 // _mwBasicAuthorizationHandlers
 // Basic Authorization implement
-// RETURN VALUE: 0 (OK), -1(failed), 1(Authorization needed)
+// RETURN VALUE:
+//  -1 (failed)
+//   0 (no need to authorization)
+//   1 (successed)
+//   2 (Authorization needed)
 ////////////////////////////////////////////////////////////////////////////
 int _mwBasicAuthorizationHandlers(HttpParam* hp, HttpSocket* phsSocket)
 {
 	AuthHandler* pah;
+	char* path = phsSocket->request.pucPath;
+	int ret = 0;
 
-	for (pah=hp->pxAuthHandler; pah && pah->pchUrlPrefix; pah++) {
+	for (pah = hp->pxAuthHandler; pah && pah->pchUrlPrefix; pah++) {
+		if (strncmp(path, pah->pchUrlPrefix, strlen(pah->pchUrlPrefix)) != 0) continue;
+
 		if (pah->pchUsername == NULL || *pah->pchUsername == '\0' ||
 			pah->pchPassword == NULL || *pah->pchPassword == '\0') continue;
+
 		if (pah->pchAuthString == NULL) pah->pchAuthString = 
 				_mwGetBaisAuthorization(pah->pchUsername, pah->pchPassword);
-		//TODO here!
+		if (phsSocket->request.pucAuthString == NULL) {
+			ret = 2; //Need to auth
+			break;
+		}
+		else if (strncmp(phsSocket->request.pucAuthString, pah->pchAuthString, strlen(pah->pchAuthString)) == 0) { //FIXME:
+			ret = 1; //successed
+			break;
+		}
+		else {
+			ret = -1; //Failed, try next
+		}
 	}
 
-	return 0;
+	return ret;
 }
-#endif
+#endif //DISABLE_BASIC_WWWAUTH
 
 int _mwCheckUrlHandlers(HttpParam* hp, HttpSocket* phsSocket)
 {
@@ -866,7 +903,7 @@ int _mwProcessReadSocket(HttpParam* hp, HttpSocket* phsSocket)
 	}
 
 	// check if end of request
-	if (phsSocket->request.headerSize==0) {
+	if (1 /*phsSocket->request.headerSize==0*/) { //FIXME
 		int i=0;
 		char *path = 0;
 
@@ -1002,6 +1039,22 @@ done:
 
 	SYSLOG(LOG_INFO,"[%d] request path: %s\n",phsSocket->socket,phsSocket->request.pucPath);
 	hp->stats.reqCount++;
+
+#ifndef DISABLE_BASIC_WWWAUTH
+	if (hp->pxAuthHandler != NULL) {
+		int ret = _mwBasicAuthorizationHandlers(hp, phsSocket);
+		switch (ret) {
+		case 0: //No need to auth
+		case 1: //Successed
+			break;
+		case 2: //Authorization needed
+		default://Failed
+			_mwSend401AuthorizationRequired(phsSocket);
+			return 0;
+		}
+	}
+#endif
+
 	if (hp->pxUrlHandler) {
 		if (!_mwCheckUrlHandlers(hp,phsSocket))
 			SETFLAG(phsSocket,FLAG_DATA_FILE);
@@ -1765,6 +1818,10 @@ int _mwParseHttpHeader(HttpSocket* phsSocket)
 	char *p=phsSocket->buffer;		//pointer to header data
 	HttpRequest *req=&phsSocket->request;
 
+#ifndef DISABLE_BASIC_WWWAUTH
+	phsSocket->request.pucAuthString = NULL;
+#endif
+
 	p = strstr(phsSocket->buffer, "HTTP/1.");
 	do {
 		if (p) continue;
@@ -1786,7 +1843,7 @@ int _mwParseHttpHeader(HttpSocket* phsSocket)
 				if (_mwStrHeadMatch(&p,"close")) {
 					SETFLAG(phsSocket,FLAG_CONN_CLOSE);
 				} else if (_mwStrHeadMatch(&p,"Keep-Alive")) {
-					CLRFLAG(phsSocket,FLAG_CONN_CLOSE);
+					CLRFLAG(phsSocket,FLAG_CONN_CLOSE); //FIXME!!
 				}
 			} else if (_mwStrHeadMatch(&p, "ontent-Length: ")) {
 				p+=_mwGrabToken(p,'\r',buf,sizeof(buf));
@@ -1840,6 +1897,13 @@ int _mwParseHttpHeader(HttpSocket* phsSocket)
 				phsSocket->request.pucTransport = p;
 			}
 			break;
+#ifndef DISABLE_BASIC_WWWAUTH
+		case 'A':
+			if (_mwStrHeadMatch(&p,"uthorization: ")) {
+				phsSocket->request.pucAuthString = p;
+			}
+			break;
+#endif
 		}
 	}
 	return 0;					//end of header
