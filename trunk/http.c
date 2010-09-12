@@ -903,7 +903,7 @@ int _mwProcessReadSocket(HttpParam* hp, HttpSocket* phsSocket)
 	}
 
 	// check if end of request
-	if (1 /*phsSocket->request.headerSize==0*/) { //FIXME
+	if (phsSocket->request.headerSize==0) { //FIXME
 		int i=0;
 		char *path = 0;
 
