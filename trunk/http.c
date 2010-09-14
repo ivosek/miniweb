@@ -731,7 +731,7 @@ char *_mwGetBaisAuthorization(const char* username, const char* password)
 ////////////////////////////////////////////////////////////////////////////
 // _mwSend401AuthorizationRequired
 ////////////////////////////////////////////////////////////////////////////
-void _mwSend401AuthorizationRequired(HttpSocket* phsSocket)
+void _mwSend401AuthorizationRequired(HttpParam* hp, HttpSocket* phsSocket)
 {
 	char hdr[128];
 	int hdrsize = snprintf(hdr, sizeof(hdr), HTTP401_HEADER, "Login", sizeof(HTTP401_BODY) - 1);
@@ -740,6 +740,9 @@ void _mwSend401AuthorizationRequired(HttpSocket* phsSocket)
 	// send Authorization Required
 	send(phsSocket->socket, hdr, hdrsize, 0);
 	send(phsSocket->socket, HTTP401_BODY, sizeof(HTTP401_BODY)-1, 0);
+//Below is the work around 
+	SETFLAG(phsSocket, FLAG_CONN_CLOSE);
+	_mwCloseSocket(hp, phsSocket);
 }
 
 ////////////////////////////////////////////////////////////////////////////
@@ -1049,7 +1052,7 @@ done:
 			break;
 		case 2: //Authorization needed
 		default://Failed
-			_mwSend401AuthorizationRequired(phsSocket);
+			_mwSend401AuthorizationRequired(hp, phsSocket);
 			return 0;
 		}
 	}
