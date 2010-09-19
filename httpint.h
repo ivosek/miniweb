@@ -41,7 +41,7 @@
 #define HTTPBODY_REDIRECT "<html><head><meta http-equiv=\"refresh\" content=\"0; URL=%s\"></head><body></body></html>"
 #define HTTP301_HEADER "HTTP/1.1 301 Moved Permanently\r\nServer: %s\r\nLocation: %s\r\n\r\n"
 #define HTTP401_HEADER "HTTP/1.1 401 Authorization Required\r\nWWW-Authenticate: Basic realm=\"%s\"\r\nContent-Length: %d\r\nContent-Type: text/html\r\n\r\n"
-#define HTTP401_BODY "<html><head><title>401 Authorization Required</title></head><body><h1>Authorization Required</h1><p>This server could not verify that you are authorized to access the resource requested</p></body></html>"
+//#define HTTP401_BODY "<html><head><title>401 Authorization Required</title></head><body><h1>Authorization Required</h1><p>This server could not verify that you are authorized to access the resource requested</p></body></html>"
 #define HTTP_CONTENTLENGTH "Content-Length:"
 #define HTTP_MULTIPARTHEADER "multipart/form-data"
 #define HTTP_MULTIPARTCONTENT "Content-Disposition: form-data; name="

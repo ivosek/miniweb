@@ -163,7 +163,7 @@ typedef struct {
 	int iCSeq;
 	const char* pucTransport;
 #ifndef DISABLE_BASIC_WWWAUTH
-	const char* pucAuthString;
+	const char* pucAuthInfo;
 #endif
 } HttpRequest;
 
@@ -258,10 +258,17 @@ typedef struct {
 } UrlHandler;
 
 #ifndef DISABLE_BASIC_WWWAUTH
+
+#define AUTH_NO_NEED (0)
+#define AUTH_SUCCESSED (1)
+#define AUTH_REQUIRED (2)
+#define AUTH_FAILED (-1)
+
 typedef struct {
 	char* pchUrlPrefix;
 	char pchUsername[MAX_PATH];
 	char pchPassword[MAX_PATH];
+	char pchOtherInfo[MAX_PATH];
 	char *pchAuthString;
 } AuthHandler;
 #endif
