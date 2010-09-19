@@ -55,7 +55,7 @@ UrlHandler urlHandlerList[]={
 
 #ifndef DISABLE_BASIC_WWWAUTH
 AuthHandler authHandlerList[]={
-	{"stats", "user", "pass", NULL},
+	{"stats", "user", "pass", "group=admin", NULL},
 	{NULL}
 };
 #endif
