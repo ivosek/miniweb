@@ -269,7 +269,7 @@ typedef struct {
 	char pchUsername[MAX_PATH];
 	char pchPassword[MAX_PATH];
 	char pchOtherInfo[MAX_PATH];
-	char *pchAuthString;
+	char pchAuthString[2*MAX_PATH];
 } AuthHandler;
 #endif
 

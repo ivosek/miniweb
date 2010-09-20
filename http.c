@@ -709,23 +709,26 @@ void _mwBase64Encode(const char *in_str, int in_len, char *out_str)
 // _mwGetBaisAuthorization
 // RETURN VALUE: Authorization string, need to free by caller
 ////////////////////////////////////////////////////////////////////////////
-char *_mwGetBaisAuthorization(const char* username, const char* password)
+int _mwGetBaisAuthorization(const char* username, const char* password, char* out /*OUT*/)
 {
 	const char prefix[] = "Basic ";
 	int len = strlen(username) + 1 + strlen(password);
-	char *tmp = (char*)malloc(len + 1);
-	char *out = (char*)malloc(sizeof(prefix) + (len * 4 / 3 + 1) + 2);
-	char *p = out + sizeof(prefix) - 1;
+	int out_len = sizeof(prefix) + (len * 4 / 3 + 1) + 2;
+	char *tmp, *p;
 
+	if (out_len >= MAX_PATH * 2) return -1;
+
+	tmp = (char*)malloc(len + 1);
 	sprintf(tmp, "%s:%s", username, password);
 	strcpy(out, prefix);
+	p = out + sizeof(prefix) - 1;
 	_mwBase64Encode(tmp, len, p);
 	p += strlen(p);
 	p[0] = '\r'; p[1] = '\n'; p[2] = '\0';
 
 	free(tmp);
 
-	return out;
+	return 0;
 }
 
 ////////////////////////////////////////////////////////////////////////////
@@ -778,8 +781,9 @@ int _mwBasicAuthorizationHandlers(HttpParam* hp, HttpSocket* phsSocket)
 		if (pah->pchUsername == NULL || *pah->pchUsername == '\0' ||
 			pah->pchPassword == NULL || *pah->pchPassword == '\0') continue;
 
-		if (pah->pchAuthString == NULL) pah->pchAuthString = 
-				_mwGetBaisAuthorization(pah->pchUsername, pah->pchPassword);
+		if (*pah->pchAuthString == '\0') {
+				if (_mwGetBaisAuthorization(pah->pchUsername, pah->pchPassword, pah->pchAuthString) != 0) continue;
+		}
 		if (phsSocket->request.pucAuthInfo == NULL) {
 			ret = AUTH_REQUIRED; //Need to auth
 			break;
