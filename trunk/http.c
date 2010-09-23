@@ -716,7 +716,7 @@ int _mwGetBaisAuthorization(const char* username, const char* password, char* ou
 	int out_len = sizeof(prefix) + (len * 4 / 3 + 1) + 2;
 	char *tmp, *p;
 
-	if (out_len >= MAX_PATH * 2) return -1;
+	if (out_len >= MAX_AUTH_INFO_LEN) return -1;
 
 	tmp = (char*)malloc(len + 1);
 	sprintf(tmp, "%s:%s", username, password);
@@ -776,6 +776,7 @@ int _mwBasicAuthorizationHandlers(HttpParam* hp, HttpSocket* phsSocket)
 	int ret = AUTH_NO_NEED;
 
 	for (pah = hp->pxAuthHandler; pah && pah->pchUrlPrefix; pah++) {
+		//printf("\req path:%s prefix:0x%x, username:0x%x, password:0x%x\n", path, pah->pchUrlPrefix, pah->pchUsername, pah->pchPassword);
 		if (strncmp(path, pah->pchUrlPrefix, strlen(pah->pchUrlPrefix)) != 0) continue;
 
 		if (pah->pchUsername == NULL || *pah->pchUsername == '\0' ||
