@@ -264,12 +264,13 @@ typedef struct {
 #define AUTH_REQUIRED (2)
 #define AUTH_FAILED (-1)
 
+#define MAX_AUTH_INFO_LEN 128
 typedef struct {
 	char* pchUrlPrefix;
-	char pchUsername[MAX_PATH];
-	char pchPassword[MAX_PATH];
-	char pchOtherInfo[MAX_PATH];
-	char pchAuthString[2*MAX_PATH];
+	char pchUsername[MAX_AUTH_INFO_LEN];
+	char pchPassword[MAX_AUTH_INFO_LEN];
+	char pchOtherInfo[MAX_AUTH_INFO_LEN];
+	char pchAuthString[MAX_AUTH_INFO_LEN];
 } AuthHandler;
 #endif
 
