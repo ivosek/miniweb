@@ -135,10 +135,6 @@ int mwServerStart(HttpParam* hp)
 		}
 	}
 
-#ifdef _7Z
-	hp->szctx = SzInit();
-#endif
-
 	if (!(hp->listenSocket=_mwStartListening(hp))) {
 		DBG("Error listening on port %d\n", hp->httpPort);
 		return -1;
