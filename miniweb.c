@@ -34,8 +34,8 @@ UrlHandler urlHandlerList[]={
 #ifndef NOTHREAD
 	{"async", uhAsyncDataTest, NULL},
 #endif
-	{"test.sdp", uhRTSP, NULL},
 #ifdef MEDIA_SERVER
+	{"test.sdp", uhRTSP, NULL},
 	{"MediaServer/VideoItems/", uhMediaItemsTranscode, ehMediaItemsEvent},
 #endif
 #ifdef _7Z
