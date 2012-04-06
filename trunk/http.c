@@ -5,16 +5,18 @@
 // MiniWeb - mini webserver implementation
 //
 /////////////////////////////////////////////////////////////////////////////
+#ifndef WINCE
+#include <fcntl.h>
+#include <errno.h>
+#include <sys/stat.h>
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
-#include <fcntl.h>
-#include <errno.h>
-#include <sys/stat.h>
-#include "httppil.h"
 #include "httpapi.h"
 #include "httpint.h"
+
 #ifdef _7Z
 #include "7zDec/7zInc.h"
 #endif
@@ -66,18 +68,17 @@ const char *dayNames="Sun\0Mon\0Tue\0Wed\0Thu\0Fri\0Sat";
 const char *monthNames="Jan\0Feb\0Mar\0Apr\0May\0Jun\0Jul\0Aug\0Sep\0Oct\0Nov\0Dec";
 const char *httpDateTimeFormat="%s, %02d %s %d %02d:%02d:%02d GMT";
 
-char* mwGetVarValue(HttpVariables* vars, const char *varname, int index)
+char* mwGetVarValue(HttpVariables* vars, const char *varname, const char *defval)
 {
 	int i;
-	int count = 0;
 	if (vars && varname) {
 		for (i=0; (vars+i)->name; i++) {
 			if (!strcmp((vars+i)->name,varname)) {
-				if (index == count++) return (vars+i)->value;
+				return (vars+i)->value;
 			}
 		}
 	}
-	return NULL;
+	return (char*)defval;
 }
 
 int mwGetVarValueInt(HttpVariables* vars, const char *varname, int defval)
@@ -96,6 +97,7 @@ int mwGetVarValueInt(HttpVariables* vars, const char *varname, int defval)
 
 int mwGetHttpDateTime(time_t timer, char *buf, int bufsize)
 {
+#ifndef WINCE
 	struct tm *btm;
 	btm=gmtime(&timer);
 	return snprintf(buf, bufsize, httpDateTimeFormat,
@@ -106,6 +108,17 @@ int mwGetHttpDateTime(time_t timer, char *buf, int bufsize)
 		btm->tm_hour,
 		btm->tm_min,
 		btm->tm_sec);
+#else
+	return 0;
+#endif
+}
+
+void mwInitParam(HttpParam* hp)
+{
+	memset(hp, 0, sizeof(HttpParam));
+	hp->httpPort = 80;
+	hp->tmSocketExpireTime = 60;
+	hp->maxClients = 8;
 }
 
 ////////////////////////////////////////////////////////////////////////////
@@ -119,12 +132,8 @@ int mwServerStart(HttpParam* hp)
 		return -1;
 	}
 	if (!fpLog) fpLog=stderr;
-	if (!InitSocket()) {
-		DBG("Error initializing Winsock\n");
-		return -1;
-	}
 
-	{
+	if (hp->pxUrlHandler) {
 		int i;
 		for (i=0;(hp->pxUrlHandler+i)->pchUrlPrefix;i++) {
 			if ((hp->pxUrlHandler+i)->pfnEventHandler &&
@@ -135,25 +144,23 @@ int mwServerStart(HttpParam* hp)
 		}
 	}
 
+#ifdef _7Z
+	hp->szctx = SzInit();
+#endif
+
 	if (!(hp->listenSocket=_mwStartListening(hp))) {
 		DBG("Error listening on port %d\n", hp->httpPort);
 		return -1;
 	}
 
+#ifndef WINCE
 	hp->stats.startTime=time(NULL);
+#else
+	hp->stats.startTime = GetTickCount()>>10;
+#endif
 	hp->bKillWebserver=FALSE;
 	hp->bWebserverRunning=TRUE;
 	if (!hp->tmSocketExpireTime) hp->tmSocketExpireTime = HTTP_EXPIRATION_TIME;
-
-#ifndef NOTHREAD
-	if (ThreadCreate(&hp->tidHttpThread,_mwHttpThread,(void*)hp)) {
-		DBG("Error creating server thread\n");
-		return -1;
-	}
-#else
-	_mwHttpThread((void*)hp);
-#endif
-
 	return 0;
 }
 
@@ -216,7 +223,7 @@ int mwGetLocalFileName(HttpFilePath* hfp)
 			*(p++)=' ';
 			s++;
 		} else if (ch=='.') {
-			if (upLevel && GETWORD(s+1)==DEFWORD('.','/')) {
+			if (upLevel && !memcmp(s+1, "./", 2)) {
 				s+=2;
 				p=upLevel;
 			} else {
@@ -326,8 +333,9 @@ void _mwInitSocketData(HttpSocket *phsSocket)
 // _mwHttpThread
 // Webserver independant processing thread. Handles all connections
 ////////////////////////////////////////////////////////////////////////////
-void* _mwHttpThread(HttpParam *hp)
+void* mwHttpLoop(void* _hp)
 { 
+	HttpParam *hp = (HttpParam*)_hp;
 	HttpSocket *phsSocketCur;
 	SOCKET socket;
 	struct sockaddr_in sinaddr;
@@ -347,7 +355,11 @@ void* _mwHttpThread(HttpParam *hp)
 		iSelectMaxFds=hp->listenSocket;
 
 		// get current time
+#ifndef WINCE
 		tmCurrentTime=time(NULL);  
+#else
+		tmCurrentTime=GetTickCount() >> 10;
+#endif
 		// build descriptor sets and close timed out sockets
 		for (phsSocketCur=hp->phsSocketHead; phsSocketCur; phsSocketCur=phsSocketCur->next) {
 			int iError=0;
@@ -355,6 +367,7 @@ void* _mwHttpThread(HttpParam *hp)
 			// get socket fd
 			socket=phsSocketCur->socket;
 			if (!socket) continue;
+#if 0
 			if (getsockopt(socket,SOL_SOCKET,SO_ERROR,(char*)&iError,&iOptSize)) {
 				// if a socket contains a error, close it
 				SYSLOG(LOG_INFO,"[%d] Socket no longer vaild.\n",socket);
@@ -362,6 +375,7 @@ void* _mwHttpThread(HttpParam *hp)
 				_mwCloseSocket(hp, phsSocketCur);
 				continue;
 			}
+#endif
 			// check expiration timer (for non-listening, in-use sockets)
 			if (tmCurrentTime > phsSocketCur->tmExpirationTime) {
 				SYSLOG(LOG_INFO,"[%d] Http socket expired\n",phsSocketCur->socket);
@@ -434,7 +448,11 @@ void* _mwHttpThread(HttpParam *hp)
 					}
 					if (!iRc) {
 						// and reset expiration timer
+#ifndef WINCE
 						phsSocketCur->tmExpirationTime=time(NULL)+hp->tmSocketExpireTime;
+#else
+						phsSocketCur->tmExpirationTime=(GetTickCount()>>10)+hp->tmSocketExpireTime;
+#endif
 					} else {
 						_mwCloseSocket(hp, phsSocketCur);
 					}
@@ -463,9 +481,13 @@ void* _mwHttpThread(HttpParam *hp)
 				//fill structure with data
 				_mwInitSocketData(phsSocketCur);
 				phsSocketCur->request.pucPayload = 0;
+#ifndef WINCE
 				phsSocketCur->tmAcceptTime=time(NULL);
+#else
+				phsSocketCur->tmAcceptTime = GetTickCount()>>10;
+#endif
 				phsSocketCur->socket=socket;
-				phsSocketCur->tmExpirationTime=time(NULL)+hp->tmSocketExpireTime;
+				phsSocketCur->tmExpirationTime=phsSocketCur->tmAcceptTime+hp->tmSocketExpireTime;
 				phsSocketCur->iRequestCount=0;
 				phsSocketCur->ipAddr.laddr=ntohl(sinaddr.sin_addr.s_addr);
 				SYSLOG(LOG_INFO,"[%d] IP: %d.%d.%d.%d\n",
@@ -502,6 +524,12 @@ void* _mwHttpThread(HttpParam *hp)
 					phsSocketCur=phsSocketCur->next;
 				}
 			}
+			// call idle event
+			if (hp->pfnIdleCallback) {
+				(*hp->pfnIdleCallback)(hp);
+			}
+			
+
 		}
 	}
 
@@ -550,7 +578,7 @@ SOCKET _mwAcceptSocket(HttpParam* hp,struct sockaddr_in *sinaddr)
 
 	socket=accept(hp->listenSocket, (struct sockaddr*)sinaddr,&namelen);
 
-    SYSLOG(LOG_INFO,"[%d] connection accepted @ %s\n",socket,GetTimeString());
+    SYSLOG(LOG_INFO,"[%d] connection accepted\n",socket);
 
 	if ((int)socket<=0) {
 		DBG("Error accepting socket\n");
@@ -581,7 +609,11 @@ int _mwBuildHttpHeader(HttpSocket *phsSocket, time_t contentDateTime, unsigned c
 	unsigned char *p = buffer;
 	unsigned char *end = buffer + 512;
 	p+=snprintf(p, end - p, HTTP200_HEADER,
+#ifdef ENABLE_RTSP
 		(phsSocket->flags & (FLAG_REQUEST_DESCRIBE | FLAG_REQUEST_SETUP)) ? "RTSP/1.0" : "HTTP/1.1",
+#else
+		"HTTP/1.1",
+#endif
 		(phsSocket->request.startByte==0)?"200 OK":"206 Partial content",
 		HTTP_SERVER_NAME,
 		HTTP_KEEPALIVE_TIME,
@@ -590,7 +622,7 @@ int _mwBuildHttpHeader(HttpSocket *phsSocket, time_t contentDateTime, unsigned c
 	if (contentDateTime) {
 		p += snprintf(p, end - p, "Last-Modified: ");
 		p+=mwGetHttpDateTime(contentDateTime, p, 512);
-		SETWORD(p,DEFWORD('\r','\n'));
+		strcpy(p, "\r\n");
 		p+=2;
 	}
 	if (phsSocket->request.iCSeq) {
@@ -603,7 +635,7 @@ int _mwBuildHttpHeader(HttpSocket *phsSocket, time_t contentDateTime, unsigned c
 	if (phsSocket->flags & FLAG_CHUNK) {
 		p += sprintf(p, "Transfer-Encoding: chunked\r\n");
 	}
-	SETDWORD(p,DEFDWORD('\r','\n',0,0));
+	strcpy(p, "\r\n");
 	return (int)(p- buffer + 2);
 }
 
@@ -618,8 +650,9 @@ int mwParseQueryString(UrlHandlerParam* up)
 			*(s++) = 0;
 		} else if (ISFLAGSET(up->hs,FLAG_REQUEST_POST)){
 			s = up->hs->request.pucPayload;
+			if (!strncmp(s, "<?xml", 5)) s = 0;
 		}
-		if (s && *s && strncmp(s, "<?xml", 5)) {
+		if (s && *s) {
 			int i;
 			int n = 1;
 			//get number of variables
@@ -826,6 +859,7 @@ int _mwCheckUrlHandlers(HttpParam* hp, HttpSocket* phsSocket)
 			up.pucBuffer=phsSocket->pucData;
 			up.pucBuffer[0]=0;
 			up.iVarCount=-1;
+			mwParseQueryString(&up);
 			ret=(*puh->pfnUrlHandler)(&up);
 			if (!ret) continue;
 			phsSocket->flags|=ret;
@@ -879,6 +913,7 @@ int _mwCheckUrlHandlers(HttpParam* hp, HttpSocket* phsSocket)
 ////////////////////////////////////////////////////////////////////////////
 int _mwProcessReadSocket(HttpParam* hp, HttpSocket* phsSocket)
 {
+#ifndef _NO_POST
     if (ISFLAGSET(phsSocket,FLAG_REQUEST_POST)) {
 		if (phsSocket->pxMP && phsSocket->pxMP->pchBoundaryValue[0]) {
 			// multipart and has valid boundary string
@@ -891,6 +926,7 @@ int _mwProcessReadSocket(HttpParam* hp, HttpSocket* phsSocket)
 			goto done;
 		}
     }
+#endif
 
 	// read next chunk of data
 	{
@@ -923,10 +959,11 @@ int _mwProcessReadSocket(HttpParam* hp, HttpSocket* phsSocket)
 	if (phsSocket->request.headerSize==0) { //FIXME
 		int i=0;
 		char *path = 0;
+		unsigned char *headerEnd = strstr(phsSocket->buffer, HTTP_HEADER_END);
 
-		while (GETDWORD(phsSocket->buffer + i) != HTTP_HEADEREND) {
-			if (++i > phsSocket->dataLength - 3) return 0;
-		}
+		if (!headerEnd)
+			return 0;
+
 		// reach the end of the header
 		//check request type
 		if (!memcmp(phsSocket->buffer, "GET", 3)) {
@@ -935,6 +972,7 @@ int _mwProcessReadSocket(HttpParam* hp, HttpSocket* phsSocket)
 		} else if (!memcmp(phsSocket->buffer, "POST", 4)) {
 			SETFLAG(phsSocket,FLAG_REQUEST_POST);
 			path = phsSocket->pucData + 6;
+#ifdef ENABLE_RTSP
 		} else if (!memcmp(phsSocket->buffer, "OPTIONS", 7)) {
 			SETFLAG(phsSocket,FLAG_REQUEST_OPTIONS);
 			path = phsSocket->pucData + 8;
@@ -950,6 +988,7 @@ int _mwProcessReadSocket(HttpParam* hp, HttpSocket* phsSocket)
 		} else if (!memcmp(phsSocket->buffer, "TEARDOWN", 8)) {
 			SETFLAG(phsSocket,FLAG_REQUEST_TEARDOWN);
 			path = phsSocket->pucData + 9;
+#endif
 		} else {
 			SYSLOG(LOG_INFO,"[%d] Unsupported method\n",phsSocket->socket);		
 			SETFLAG(phsSocket,FLAG_CONN_CLOSE);
@@ -957,7 +996,7 @@ int _mwProcessReadSocket(HttpParam* hp, HttpSocket* phsSocket)
 			return -1;
 		}
 
-		phsSocket->request.headerSize = i + 4;
+		phsSocket->request.headerSize = headerEnd - phsSocket->buffer + 4;
 		DBG("[%d] header size: %d bytes\n",phsSocket->socket,phsSocket->request.headerSize);
 		if (_mwParseHttpHeader(phsSocket)) {
 			SYSLOG(LOG_INFO,"Error parsing request\n");
@@ -1019,8 +1058,8 @@ int _mwProcessReadSocket(HttpParam* hp, HttpSocket* phsSocket)
 					phsSocket->request.pucPayload=malloc(phsSocket->bufferSize);
 					phsSocket->request.payloadSize = phsSocket->response.contentLength;
 					phsSocket->request.pucPayload[phsSocket->request.payloadSize]=0;
-					phsSocket->dataLength -= phsSocket->request.headerSize;
-					memcpy(phsSocket->request.pucPayload, phsSocket->buffer + phsSocket->request.headerSize, phsSocket->dataLength);
+					phsSocket->dataLength = phsSocket->request.payloadSize;
+					memcpy(phsSocket->request.pucPayload, phsSocket->buffer + phsSocket->request.headerSize, phsSocket->request.payloadSize);
 					phsSocket->pucData = phsSocket->request.pucPayload;
 				}
 			}
@@ -1044,7 +1083,9 @@ int _mwProcessReadSocket(HttpParam* hp, HttpSocket* phsSocket)
 		// there is more data
 		return 0;
 	}
+#ifndef _NO_POST
 done:
+#endif
 
 	if (phsSocket->request.headerSize) {
 		phsSocket->pucData = phsSocket->buffer + phsSocket->request.headerSize + 4;
@@ -1075,6 +1116,8 @@ done:
 
 	if (hp->pxUrlHandler) {
 		if (!_mwCheckUrlHandlers(hp,phsSocket))
+			SETFLAG(phsSocket,FLAG_DATA_FILE);
+	} else {
 			SETFLAG(phsSocket,FLAG_DATA_FILE);
 	}
 	// set state to SENDING (actual sending will occur on next select)
@@ -1129,7 +1172,11 @@ int _mwProcessWriteSocket(HttpParam *hp, HttpSocket* phsSocket)
 void _mwCloseSocket(HttpParam* hp, HttpSocket* phsSocket)
 {
 	if (phsSocket->fd > 0) {
+#ifndef WINCE
 		close(phsSocket->fd);
+#else
+		CloseHandle(phsSocket->fd);
+#endif
 	}
 	phsSocket->fd = 0;
 	if (phsSocket->pxMP) {
@@ -1157,6 +1204,7 @@ void _mwCloseSocket(HttpParam* hp, HttpSocket* phsSocket)
 		up.pucBuffer = 0;	// indicate connection closed
 		up.dataBytes = -1;
 		(pfnHandler->pfnUrlHandler)(&up);
+		phsSocket->handler = 0;
 	}
 	if (ISFLAGSET(phsSocket,FLAG_TO_FREE) && phsSocket->ptr) {
 		free(phsSocket->ptr);
@@ -1167,11 +1215,19 @@ void _mwCloseSocket(HttpParam* hp, HttpSocket* phsSocket)
 		free(phsSocket->request.pucPath);
 		phsSocket->request.pucPath = 0;
 	}
-	if (!ISFLAGSET(phsSocket,FLAG_CONN_CLOSE) && phsSocket->iRequestCount< MAX_CONN_REQUESTS) {
+	if (!ISFLAGSET(phsSocket,FLAG_CONN_CLOSE)
+#ifndef WINCE
+		&& phsSocket->iRequestCount< MAX_CONN_REQUESTS
+#endif
+		) {
 		_mwInitSocketData(phsSocket);
 		//reset flag bits
 		phsSocket->iRequestCount++;
+#ifndef WINCE
 		phsSocket->tmExpirationTime=time(NULL)+HTTP_KEEPALIVE_TIME;
+#else
+		phsSocket->tmExpirationTime=(GetTickCount()>>10)+HTTP_KEEPALIVE_TIME;
+#endif
 		return;
 	}
     if (phsSocket->socket != 0) {
@@ -1207,6 +1263,7 @@ int _mwStrHeadMatch(char** pbuf1, const char* buf2) {
 	return i;
 }
 
+#ifndef _NO_LISTDIR
 int _mwListDirectory(HttpSocket* phsSocket, char* dir)
 {
 	char cFileName[128];
@@ -1218,7 +1275,7 @@ int _mwListDirectory(HttpSocket* phsSocket, char* dir)
 	
 	p+=snprintf(p, 256, "<html><head><title>/%s</title></head><body><table border=0 cellpadding=0 cellspacing=0 width=100%%><h2>Directory of /%s</h2><hr>",
 		phsSocket->request.pucPath,phsSocket->request.pucPath);
-	if (!*dir) SETWORD(dir,DEFWORD('.',0));
+	if (!*dir) strcpy(dir, ".");
 	DBG("Listing directory: %s\n",dir);
 	for (ret=ReadDir(dir,cFileName); !ret; ret=ReadDir(NULL,cFileName)) {
 		struct stat st;
@@ -1272,6 +1329,7 @@ int _mwListDirectory(HttpSocket* phsSocket, char* dir)
 	}
 	return 0;
 }
+#endif
 
 void _mwSend404Page(HttpSocket* phsSocket)
 {
@@ -1293,16 +1351,22 @@ void _mwSend404Page(HttpSocket* phsSocket)
 // _mwStartSendFile
 // Setup for sending of a file
 ////////////////////////////////////////////////////////////////////////////
-int _mwStartSendFile(HttpParam* hp, HttpSocket* phsSocket)
+int _mwStartSendFile2(HttpParam* hp, HttpSocket* phsSocket, char* rootPath, char* filePath)
 {
+#ifndef WINCE
 	struct stat st;
+#endif
 	HttpFilePath hfp;
 
-	hfp.pchRootPath=hp->pchWebPath;
+	if (rootPath == NULL || filePath == NULL)
+		return -1;
+
+	hfp.pchRootPath=rootPath; //hp->pchWebPath;
 	// check type of file requested
 	if (!ISFLAGSET(phsSocket, FLAG_DATA_FD)) {
-		hfp.pchHttpPath=phsSocket->request.pucPath;
+		hfp.pchHttpPath=filePath; //phsSocket->request.pucPath;
 		mwGetLocalFileName(&hfp);
+#ifndef WINCE
 		if (stat(hfp.cFilePath,&st) < 0) {
 #ifdef _7Z
 			char* szfile = 0;
@@ -1331,16 +1395,21 @@ int _mwStartSendFile(HttpParam* hp, HttpSocket* phsSocket)
 #endif
 
 			// file/dir not found
-			_mwSend404Page(phsSocket);
 			return -1;
 		}
-
-
 		// open file
 		if (!(st.st_mode & S_IFDIR))
 			phsSocket->fd=open(hfp.cFilePath,OPEN_FLAG);
 		else
 			phsSocket->fd = -1;
+#else
+		{
+			TCHAR filePath[MAX_PATH];
+			MultiByteToWideChar(CP_ACP, MB_COMPOSITE, hfp.cFilePath, strlen(hfp.cFilePath) + 1, filePath, sizeof(filePath) / sizeof(filePath[0]));
+			phsSocket->fd = CreateFile(filePath, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, 0, 0);
+		}
+#endif
+#ifndef WINCE
 	} else if ((phsSocket->flags & FLAG_DATA_FD) && phsSocket->fd > 0) {
 		strcpy(hfp.cFilePath, phsSocket->request.pucPath);
 		hfp.pchExt = strrchr(hfp.cFilePath, '.');
@@ -1348,20 +1417,25 @@ int _mwStartSendFile(HttpParam* hp, HttpSocket* phsSocket)
 		st.st_mtime = 0;
 		st.st_size = 0;
 		fstat(phsSocket->fd, &st);
+#endif
 	} else {
-		_mwSend404Page(phsSocket);
 		return -1;
 	}
 
+#ifndef WINCE
 	if (phsSocket->fd < 0) {
+#else
+	if (phsSocket->fd == INVALID_HANDLE_VALUE) {
+#endif
 		char *p;
 		int i;
 
+#ifndef WINCE
 		if (!(st.st_mode & S_IFDIR)) {
 			// file/dir not found
-			_mwSend404Page(phsSocket);
 			return -1;
 		}
+#endif
 		
 		DBG("Process Directory...\n");
 		//requesting for directory, first try opening default pages
@@ -1369,20 +1443,33 @@ int _mwStartSendFile(HttpParam* hp, HttpSocket* phsSocket)
 		*(p++)=SLASH;
 		for (i=0; i<sizeof(defaultPages)/sizeof(defaultPages[0]); i++) {
 			strcpy(p,defaultPages[i]);
+#ifndef WINCE
 			phsSocket->fd=open(hfp.cFilePath,OPEN_FLAG);
 			if (phsSocket->fd > 0) {
 				fstat(phsSocket->fd, &st);
 				hfp.pchExt = strchr(defaultPages[i], '.') + 1;
 				break;
 			}
+#else
+			{
+				WCHAR filePath[MAX_PATH];
+				MultiByteToWideChar(CP_ACP, MB_COMPOSITE, hfp.cFilePath, strlen(hfp.cFilePath) + 1, filePath, sizeof(filePath) / sizeof(filePath[0]));
+				phsSocket->fd = CreateFile(filePath, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, 0, 0);
+			}
+			if (phsSocket->fd != INVALID_HANDLE_VALUE) {
+				hfp.pchExt = strchr(defaultPages[i], '.') + 1;
+				break;
+			}
+#endif
 		}
 
+#ifndef _NO_LISTDIR
 		if (phsSocket->fd <= 0 && (hp->flags & FLAG_DIR_LISTING)) {
 			SETFLAG(phsSocket,FLAG_DATA_RAW);
 			if (!hfp.fTailSlash) {
 				p=phsSocket->request.pucPath;
 				while(*p) p++;				//seek to the end of the string
-				SETWORD(p,DEFWORD('/',0));	//add a tailing slash
+				strcpy(p, "/");				//add a tailing slash
 				while(--p>(char*)phsSocket->request.pucPath) {
 					if (*p=='/') {
 						p++;
@@ -1396,15 +1483,27 @@ int _mwStartSendFile(HttpParam* hp, HttpSocket* phsSocket)
 			}
 			return _mwStartSendRawData(hp, phsSocket);
 		}
+#endif
 	}
+#ifndef WINCE
 	if (phsSocket->fd > 0) {
-		phsSocket->response.contentLength = (int)(st.st_size - phsSocket->request.startByte);
+		DWORD fileSize = st.st_size;
+
+#else
+	if (phsSocket->fd != INVALID_HANDLE_VALUE) {
+		DWORD fileSize = GetFileSize(phsSocket->fd, 0);
+#endif
+		phsSocket->response.contentLength = fileSize - phsSocket->request.startByte;
 		if (phsSocket->response.contentLength <= 0) {
 			phsSocket->request.startByte = 0;
-			phsSocket->response.contentLength = st.st_size;
+			phsSocket->response.contentLength = fileSize;
 		}
 		if (phsSocket->request.startByte) {
+#ifndef WINCE
 			lseek(phsSocket->fd, (long)phsSocket->request.startByte, SEEK_SET);
+#else
+			SetFilePointer(phsSocket->fd, phsSocket->request.startByte, 0, FILE_BEGIN);
+#endif
 		}
 		if (!phsSocket->response.fileType && hfp.pchExt) {
 			phsSocket->response.fileType=mwGetContentType(hfp.pchExt);
@@ -1414,7 +1513,6 @@ int _mwStartSendFile(HttpParam* hp, HttpSocket* phsSocket)
 			SETFLAG(phsSocket,FLAG_SUBST);
 		}
 	} else {
-		_mwSend404Page(phsSocket);
 		return -1;
 	}
 
@@ -1423,14 +1521,47 @@ int _mwStartSendFile(HttpParam* hp, HttpSocket* phsSocket)
 	// build http header
 	phsSocket->dataLength=_mwBuildHttpHeader(
 		phsSocket,
+#ifndef WINCE
 		st.st_mtime,
+#else
+		0,
+#endif
 		phsSocket->pucData);
  
 	phsSocket->response.headerBytes = phsSocket->dataLength;
 	phsSocket->response.sentBytes = 0;
 	hp->stats.fileSentCount++;
 	return 0;
-} // end of _mwStartSendFile
+} // end of _mwStartSendFile2
+
+////////////////////////////////////////////////////////////////////////////
+// _mwStartSendFile
+// Setup for sending of a file
+////////////////////////////////////////////////////////////////////////////
+int _mwStartSendFile(HttpParam* hp, HttpSocket* phsSocket)
+{
+	int ret = -1;
+
+#ifndef DISABLE_VIRTUAL_PATH
+	VirtPathHandler* pvph;
+
+	for (pvph=hp->pxVirtPathHandler; pvph && pvph->pchUrlPrefix; pvph++) {
+		int prefixLen = strlen(pvph->pchUrlPrefix);
+		if (prefixLen == 0) continue;
+		if (strncmp(pvph->pchUrlPrefix, phsSocket->request.pucPath, prefixLen) == 0) {
+			ret = _mwStartSendFile2(hp, phsSocket, pvph->pchLocalRealPath, phsSocket->request.pucPath + prefixLen);
+			if (ret == 0) return 0;
+			break;
+		}
+	}
+#endif
+
+	ret = _mwStartSendFile2(hp, phsSocket, hp->pchWebPath, phsSocket->request.pucPath);
+
+	if (ret != 0) _mwSend404Page(phsSocket);
+
+	return ret;
+} //end of _mwStartSendFile
 
 ////////////////////////////////////////////////////////////////////////////
 // _mwSendFileChunk
@@ -1453,7 +1584,11 @@ int _mwSendFileChunk(HttpParam *hp, HttpSocket* phsSocket)
 			// close connection
 			DBG("[%d] error sending data\n", phsSocket->socket);
 			SETFLAG(phsSocket,FLAG_CONN_CLOSE);
+#ifndef WINCE
 			close(phsSocket->fd);
+#else
+			CloseHandle(phsSocket->fd);
+#endif
 			phsSocket->fd = 0;
 			return -1;
 		}
@@ -1468,9 +1603,14 @@ int _mwSendFileChunk(HttpParam *hp, HttpSocket* phsSocket)
 
 	// used all buffered data - load next chunk of file
 	phsSocket->pucData=phsSocket->buffer;
+#ifndef WINCE
 	iBytesRead=read(phsSocket->fd,phsSocket->buffer,HTTP_BUFFER_SIZE);
 	if (iBytesRead == -1 && errno == 8)
 		return 0; // try reading again next time
+#else
+	iBytesRead = -1;
+	ReadFile(phsSocket->fd, phsSocket->buffer,HTTP_BUFFER_SIZE, &iBytesRead, 0);
+#endif
 	if (iBytesRead<=0) {
 		// finished with a file
 		int remainBytes = phsSocket->response.contentLength + phsSocket->response.headerBytes - phsSocket->response.sentBytes;
@@ -1487,7 +1627,12 @@ int _mwSendFileChunk(HttpParam *hp, HttpSocket* phsSocket)
 			}
 			DBG("Closing file (fd=%d)\n",phsSocket->fd);
 			hp->stats.fileSentBytes+=phsSocket->response.sentBytes;
+#ifndef WINCE
 			if (phsSocket->fd > 0) close(phsSocket->fd);
+#else
+			if (phsSocket->fd != INVALID_HANDLE_VALUE) CloseHandle(phsSocket->fd);
+#endif
+
 			phsSocket->fd = 0;
 			return 1;
 		}
@@ -1497,7 +1642,11 @@ int _mwSendFileChunk(HttpParam *hp, HttpSocket* phsSocket)
 		// substituted file - read smaller chunk
 		phsSocket->dataLength=_mwSubstVariables(hp, phsSocket->buffer,iBytesRead,&iBytesUsed);
 		if (iBytesUsed<iBytesRead) {
+#ifndef WINCE
 			lseek(phsSocket->fd,iBytesUsed-iBytesRead,SEEK_CUR);
+#else
+			SetFilePointer(phsSocket->fd, iBytesUsed-iBytesRead, 0, FILE_BEGIN);
+#endif
 		}
 	} else {
 		phsSocket->dataLength=iBytesRead;
@@ -1516,7 +1665,11 @@ int _mwStartSendRawData(HttpParam *hp, HttpSocket* phsSocket)
 	} else {
 		unsigned char header[HTTP200_HDR_EST_SIZE];
 		int offset=0,hdrsize,bytes;
+#ifndef WINCE
 		hdrsize=_mwBuildHttpHeader(phsSocket,time(NULL),header);
+#else
+		hdrsize=_mwBuildHttpHeader(phsSocket,0,header);
+#endif
 		// send http header
 		do {
 			bytes=send(phsSocket->socket, header+offset,hdrsize-offset,0);
@@ -1693,21 +1846,6 @@ char* _mwStrStrNoCase(char* pchHaystack, char* pchNeedle)
 } // end of _mwStrStrNoCase
 
 ////////////////////////////////////////////////////////////////////////////
-// _mwStrDword
-////////////////////////////////////////////////////////////////////////////
-char* _mwStrDword(char* pchHaystack, DWORD dwSub, DWORD dwCharMask)
-{
-	dwCharMask = dwCharMask?(dwCharMask & 0xdfdfdfdf):0xdfdfdfdf;
-	dwSub &= dwCharMask;
-	while(*pchHaystack) {
-		if (((*(DWORD*)pchHaystack) & dwCharMask)==dwSub)
-			return pchHaystack;
-	    pchHaystack++;
-	}
-	return NULL;
-}
-
-////////////////////////////////////////////////////////////////////////////
 // _mwDecodeCharacter
 // Convert and individual character
 ////////////////////////////////////////////////////////////////////////////
@@ -1773,17 +1911,20 @@ void mwDecodeString(char* pchString)
 
 int mwGetContentType(const char *pchExtname)
 {
+	DWORD dwExt = 0;
 	// check type of file requested
 	if (pchExtname[1]=='\0') {
 		return HTTPFILETYPE_OCTET;
 	} else if (pchExtname[2]=='\0') {
+		memcpy(&dwExt, pchExtname, 2);
 		switch (GETDWORD(pchExtname) & 0xffdfdf) {
 		case FILEEXT_JS: return HTTPFILETYPE_JS;
 		case FILEEXT_TS: return HTTPFILETYPE_TS;
 		}
 	} else if (pchExtname[3]=='\0' || pchExtname[3]=='?') {
 		//identify 3-char file extensions
-		switch (GETDWORD(pchExtname) & 0xffdfdfdf) {
+		memcpy(&dwExt, pchExtname, sizeof(dwExt));
+		switch (dwExt & 0xffdfdfdf) {
 		case FILEEXT_HTM:	return HTTPFILETYPE_HTML;
 		case FILEEXT_XML:	return HTTPFILETYPE_XML;
 		case FILEEXT_XSL:	return HTTPFILETYPE_XML;
@@ -1806,8 +1947,9 @@ int mwGetContentType(const char *pchExtname)
 		case FILEEXT_SDP:	return HTTPFILETYPE_SDP;
 		}
 	} else if (pchExtname[4]=='\0' || pchExtname[4]=='?') {
+		memcpy(&dwExt, pchExtname, sizeof(dwExt));
 		//logic-and with 0xdfdfdfdf gets the uppercase of 4 chars
-		switch (GETDWORD(pchExtname)&0xdfdfdfdf) {
+		switch (dwExt & 0xdfdfdfdf) {
 		case FILEEXT_HTML:	return HTTPFILETYPE_HTML;
 		case FILEEXT_MPEG:	return HTTPFILETYPE_MPEG;
 		case FILEEXT_M3U8:	return HTTPFILETYPE_M3U8;
@@ -1852,7 +1994,7 @@ int _mwParseHttpHeader(HttpSocket* phsSocket)
 	for(;;) {
 		//look for a valid field name
 		while (*p && *p!='\r') p++;		//travel to '\r'
-		if (!*p || GETDWORD(p)==HTTP_HEADEREND)
+		if (!*p || !memcmp(p, HTTP_HEADER_END, sizeof(HTTP_HEADER_END)))
 			break;
 		p+=2;							//skip "\r\n"
 		switch (*(p++)) {
