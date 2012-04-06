@@ -37,7 +37,7 @@
 #define HTTP200_HEADER "%s %s\r\nServer: %s\r\nCache-control: no-cache\r\nPragma: no-cache\r\nAccept-Ranges: bytes\r\nKeep-Alive: timeout=%d, max=%d\r\nConnection: %s\r\n"
 #define HTTP200_HDR_EST_SIZE ((sizeof(HTTP200_HEADER)+256)&(-4))
 #define HTTP404_HEADER "HTTP/1.1 404 Not Found\r\nServer: %s\r\nConnection: Keep-Alive\r\nContent-length: %d\r\nContent-Type: text/html\r\n\r\n"
-#define HTTP404_BODY "<html><head><title>404 Not Found</title></head><body><h1>Not Found</h1><p>The requested URL was not found on this server.</p></body></html>"
+#define HTTP404_BODY "<html><head><title>404 Not Found</title></head><body><h1>Not Found</h1><p>The requested URL has no content.</p></body></html>"
 #define HTTPBODY_REDIRECT "<html><head><meta http-equiv=\"refresh\" content=\"0; URL=%s\"></head><body></body></html>"
 #define HTTP301_HEADER "HTTP/1.1 301 Moved Permanently\r\nServer: %s\r\nLocation: %s\r\n\r\n"
 #define HTTP401_HEADER "HTTP/1.1 401 Authorization Required\r\nWWW-Authenticate: Basic realm=\"%s\"\r\nContent-Length: %d\r\nContent-Type: text/html\r\n\r\n"
@@ -47,8 +47,7 @@
 #define HTTP_MULTIPARTCONTENT "Content-Disposition: form-data; name="
 #define HTTP_MULTIPARTBOUNDARY "boundary="
 #define HTTP_FILENAME "filename="
-#define HTTP_HEADEREND DEFDWORD('\r','\n','\r','\n')
-#define HTTP_HEADEREND_STR "\r\n\r\n"
+#define HTTP_HEADER_END "\r\n\r\n"
 #define HTTP_SUBST_PATTERN (WORD)(('$' << 8) + '$')
 
 // Define file extensions
@@ -91,7 +90,7 @@
 #define MAX_REQUEST_PATH_LEN (512/*bytes*/)
 #define MAX_REQUEST_SIZE (2*1024 /*bytes*/)
 
-#if 1
+#ifndef WINCE
 #define SLASH '/'
 #else
 #define SLASH '\\'
@@ -121,7 +120,6 @@ void _mwProcessPostVars(HttpParam *httpParam, HttpSocket* phsSocket,
 void _mwRedirect(HttpSocket* phsSocket, char* pchFilename);
 int _mwSendRawDataChunk(HttpParam *hp, HttpSocket* phsSocket);
 int _mwStartSendRawData(HttpParam *hp, HttpSocket* phsSocket);
-void* _mwHttpThread(HttpParam* hp);
 int _mwGetToken(char* pchBuffer,int iTokenNumber,char** ppchToken); 
 __inline char _mwDecodeCharacter(char* pchEncodedChar);
 int _mwLoadFileChunk(HttpParam *hp, HttpSocket* phsSocket);
