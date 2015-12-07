@@ -1,0 +1,1 @@
+MiniWeb is an embeddable, cross-platform, tiny HTTP (subset) server implementation, having some real applications on x86 Linux/Windows, ARM Linux, MIPS Linux platforms, either embedded or standalone.
